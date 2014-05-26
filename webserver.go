@@ -5,7 +5,9 @@ import(
     "log"
     "os"
     "fmt"
-    "github.com/darkhelmet/twitterstream"
+    "time"
+    "strconv"
+    "sync"
 )
 
 const resp = `<!DOCTYPE html>
@@ -37,7 +39,7 @@ var map;
 var markers = [];
 
 $(document).ready(function () {
-  setInterval("delayedPost()", 5000);
+  setInterval("delayedPost()", 1000);
 });
 
 function initialize() {
@@ -49,9 +51,9 @@ function initialize() {
     }
     map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
 
-    google.maps.event.addListener(map, 'click', function(event) {
-                addMarker(event.latLng);
-    });
+    //google.maps.event.addListener(map, 'click', function(event) {
+    //            addMarker(event.latLng);
+    //});
 
     //google.maps.event.addListener(map, 'rightclick', function(event) {
     //            marker.setMap(null);
@@ -97,58 +99,66 @@ func handler(w http.ResponseWriter, r *http.Request) {
     w.Write([]byte(resp))
 }
 
+type Slice struct { 
+  mu sync.Mutex
+  s []string 
+}
+
+func (s *Slice) myhandler(w http.ResponseWriter, r *http.Request) {
+  var str string // "40.765498, -73.980732"
+
+  s.mu.Lock()
+  if len(s.s) > 0 {
+      str = s.s[0]
+      s.s = s.s[1:len(s.s)]
+  }
+  s.mu.Unlock()
+
+  //println(x)
+  fmt.Fprint(w, str)
+}
+
 // handler to cater AJAX requests
 func handlerGetTime(w http.ResponseWriter, r *http.Request) {
     fmt.Println("handler called")
+
     fmt.Fprint(w, "40.765498, -73.980732")
 }
 
-func decode(conn *twitterstream.Connection) {
+func FloatToString(input_num float64) string {
+    // to convert a float number to a string
+    return strconv.FormatFloat(input_num, 'f', 6, 64)
+}
+
+func (s *Slice) generatedata() {
+    var longitude = 40.765498
+    var latitude = -73.980732
+
     for {
-        if tweet, err := conn.Next(); err == nil {
+      str := FloatToString(longitude) + ", " + FloatToString(latitude)
 
-            //fmt.Println(tweet.Text)
+      s.mu.Lock()
+      s.s = append(s.s, str)
+      s.mu.Unlock()
 
-            
-            fmt.Println(tweet.User.ScreenName + " said: " + tweet.Text)
-              //fmt.Println(tweet.Text)
-            //}
-        } else {
-            fmt.Printf("Failed decoding tweet: %s", err)
-            //continue
-            return
-        }
+      // increment
+      longitude += 0.0001
+      latitude += 0.0001
+
+      time.Sleep(500 * time.Millisecond)
     }
 }
 
 func main() {
-    var wait = 1
-    var maxWait = 600 // Seconds
+    s := new(Slice)
 
-    client := twitterstream.NewClient("l76vc0wSlg9UBGx6Pt2KuEdkY", "0SUxkYDe4opkkoz1Hj72DNYRObQcmiAMHHE5VUjJRmwDk55RUs", "957672396-4rvqhNjhM9nncGDyxcjYXnoUvSYrenKFGMtTDMBZ", "Xp5c2fojBo2DlEm0ScXwtW9WbF2dYznvstEG75CrZs9fQ")
-    
-    for {
-        conn, err := client.Locations(twitterstream.Point{40, -74}, twitterstream.Point{41, -73})
-
-        if err != nil {
-            log.Println(err)
-            wait = wait << 1 // exponential backoff
-            log.Printf("waiting for %d seconds before reconnect", min(wait, maxWait))
-            time.Sleep(time.Duration(min(wait, maxWait)) * time.Second)
-            continue
-        } else {
-          wait = 1
-        }
-
-        decode(conn)
-    }
-}
-
-func main() {
-    locations := []string{}
+    go s.generatedata()
 
     http.HandleFunc("/", handler)
-    http.HandleFunc("/gettime", handlerGetTime)
+    http.HandleFunc("/gettime", func(w http.ResponseWriter, r *http.Request) {
+      s.myhandler(w, r)
+    })
+    //http.HandleFunc("/gettime", handlerGetTime)
     err := http.ListenAndServe(":8080", nil)
 
     if err != nil {
