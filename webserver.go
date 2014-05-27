@@ -11,26 +11,11 @@ import(
     "math/rand"
 )
 
+// references:
 // http://boundingbox.klokantech.com/
 // http://nirbhay.in/2013/03/ajax-with-go/
-
-/*
-<style>
-html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-}
-
-#map-canvas, #map_canvas {
-    height: 100%;
-}
-
-#map-canvas, #map_canvas {
-    height: 650px;
-}
-</style>
-*/
+// http://www.sanwebe.com/2013/10/google-map-v3-markers-and-infowindow-with-jquery
+// http://stackoverflow.com/questions/21294014/dropping-marker-on-event-in-google-maps
 
 const resp = `
 <!DOCTYPE html>
@@ -52,7 +37,6 @@ const resp = `
     <script>
 
 var map;
-var markers = [];
 
 $(document).ready(function () {
   setInterval("delayedPost()", 1000);
@@ -73,22 +57,23 @@ function delayedPost() {
     var location = data.split(",");
     var myLatlng = new google.maps.LatLng(parseFloat(location[0]), parseFloat(location[1]));
 
-    //setSimppleMarker(myLatlng);
+    //drawSimppleMarker(myLatlng);
 
-    setCustomMarker(myLatlng);
+    //drawCustomMarker(myLatlng);
+
+    drawCircle(myLatlng);
   });
 }
 
-function setSimppleMarker(location) {
+function drawSimppleMarker(location) {
   var marker = new google.maps.Marker({
     position: location,
-    map: map
+    map: map,
+    title: 'Some location'
   });
-
-  markers.push(marker);
 }
 
-function setCustomMarker(location) {
+function drawCustomMarker(location) {
   // Add markers to the map
 
   // Marker sizes are expressed as a Size of X,Y
@@ -121,11 +106,26 @@ function setCustomMarker(location) {
         position: location,
         map: map,
         icon: image,
-        shape: shape//,
-        //title: "beach",
+        shape: shape,
+        title: 'Some location'//,
         //zIndex: 0
     });
   }
+
+  function drawCircle(location) {
+    // Add a Circle overlay to the map.
+    var circle = new google.maps.Circle({
+        center: location,
+        radius: 100,
+        strokeColor: "#FF0000",
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        fillColor: "#FF0000",
+        fillOpacity: 0.35,
+        map: map,
+        title: 'Some location'
+    });
+  } 
 
 google.maps.event.addDomListener(window, 'load', initialize);
 
