@@ -37,9 +37,9 @@ $(document).ready(function () {
 });
 
 function initialize() {
-  var NY = new google.maps.LatLng(40.784148,-73.966140);
+  var NY = new google.maps.LatLng(40.760837, -73.981847); // (40.784148,-73.966140);
   var mapOptions = {
-    zoom: 12,
+    zoom: 13,
     center: NY//,
     //mapTypeId: google.maps.MapTypeId.TERRAIN
   }
@@ -47,7 +47,7 @@ function initialize() {
 }
 
 function delayedPost() {
-  $.post("http://91.115.5.50:8080/getgeolocation", "", function(data, status) {
+  $.post("http://212.197.174.139:8080/getgeolocation", "", function(data, status) {
     var location = data.split(",");
     var myLatlng = new google.maps.LatLng(parseFloat(location[0]), parseFloat(location[1]));
 
