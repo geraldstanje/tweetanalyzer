@@ -8,13 +8,13 @@ import(
     "time"
     "strconv"
     "sync"
+    "math/rand"
 )
 
-const resp = `<!DOCTYPE html>
-<html>
-<head>
-<title>Marker Test</title>
+// http://boundingbox.klokantech.com/
+// http://nirbhay.in/2013/03/ajax-with-go/
 
+/*
 <style>
 html, body {
     height: 100%;
@@ -30,11 +30,27 @@ html, body {
     height: 650px;
 }
 </style>
+*/
 
-<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
-<script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBy9hZSnE48aRbGD8zQAHRrtlOsk_H27BU&sensor=false"></script>
+const resp = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Realtime Map</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+      html, body, #map-canvas {
+            height: 100%;
+            margin: 0px;
+            padding: 0px
+    }
+    </style>
 
-<script>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBy9hZSnE48aRbGD8zQAHRrtlOsk_H27BU&sensor=false"></script>
+    <script>
+
 var map;
 var markers = [];
 
@@ -43,126 +59,148 @@ $(document).ready(function () {
 });
 
 function initialize() {
-    var NY = new google.maps.LatLng(40.784148,-73.966140);
-    var mapOptions = {
-        zoom: 13,
-        center: NY//,
-        //mapTypeId: google.maps.MapTypeId.TERRAIN
-    }
-    map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
-
-    //google.maps.event.addListener(map, 'click', function(event) {
-    //            addMarker(event.latLng);
-    //});
-
-    //google.maps.event.addListener(map, 'rightclick', function(event) {
-    //            marker.setMap(null);
-    //});
+  var NY = new google.maps.LatLng(40.784148,-73.966140);
+  var mapOptions = {
+    zoom: 12,
+    center: NY//,
+    //mapTypeId: google.maps.MapTypeId.TERRAIN
+  }
+  map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
 }
 
 function delayedPost() {
-  //  window.alert(data);
-  $.post("http://localhost:8080/gettime", "", function(data, status) {
+  $.post("http://91.115.5.50:8080/getgeolocation", "", function(data, status) {
     var location = data.split(",");
     var myLatlng = new google.maps.LatLng(parseFloat(location[0]), parseFloat(location[1]));
-    addMarker(myLatlng);
-    //$("#output").empty();
-    //$("#output").append(data);
-    //window.alert(data);
+
+    //setSimppleMarker(myLatlng);
+
+    setCustomMarker(myLatlng);
   });
 }
 
-function addMarker(location) {
-        var marker = new google.maps.Marker({
-        position: location,
-        map: map
-    });
-    google.maps.event.addListener(marker, 'rightclick', function(event) {
-        marker.setMap(null);
-    });
+function setSimppleMarker(location) {
+  var marker = new google.maps.Marker({
+    position: location,
+    map: map
+  });
 
-    markers.push(marker);
+  markers.push(marker);
 }
+
+function setCustomMarker(location) {
+  // Add markers to the map
+
+  // Marker sizes are expressed as a Size of X,Y
+  // where the origin of the image (0,0) is located
+  // in the top left of the image.
+
+  // Origins, anchor positions and coordinates of the marker
+  // increase in the X direction to the right and in
+  // the Y direction down.
+  var image = {
+    url: '/images/beachflag.png',
+    // This marker is 20 pixels wide by 32 pixels tall.
+    size: new google.maps.Size(20, 32),
+    // The origin for this image is 0,0.
+    origin: new google.maps.Point(0,0),
+    // The anchor for this image is the base of the flagpole at 0,32.
+    anchor: new google.maps.Point(0, 32)
+  };
+  // Shapes define the clickable region of the icon.
+  // The type defines an HTML &lt;area&gt; element 'poly' which
+  // traces out a polygon as a series of X,Y points. The final
+  // coordinate closes the poly by connecting to the first
+  // coordinate.
+  var shape = {
+      coords: [1, 1, 1, 20, 18, 20, 18 , 1],
+      type: 'poly'
+  };
+  
+  var marker = new google.maps.Marker({
+        position: location,
+        map: map,
+        icon: image,
+        shape: shape//,
+        //title: "beach",
+        //zIndex: 0
+    });
+  }
 
 google.maps.event.addDomListener(window, 'load', initialize);
 
-</script>
+    </script>
 
-</head>
-    <body>
-        <div id="map-canvas"></div>
-    </body>
+  </head>
+  <body>
+    <div id="map-canvas"></div>
+  </body>
 </html>`
 
 // handler for the main page
 func handler(w http.ResponseWriter, r *http.Request) {
-    w.Write([]byte(resp))
+  w.Write([]byte(resp))
 }
 
 type Slice struct { 
   mu sync.Mutex
-  s []string 
-}
-
-func (s *Slice) myhandler(w http.ResponseWriter, r *http.Request) {
-  var str string // "40.765498, -73.980732"
-
-  s.mu.Lock()
-  if len(s.s) > 0 {
-      str = s.s[0]
-      s.s = s.s[1:len(s.s)]
-  }
-  s.mu.Unlock()
-
-  //println(x)
-  fmt.Fprint(w, str)
+  geolocation []string 
 }
 
 // handler to cater AJAX requests
-func handlerGetTime(w http.ResponseWriter, r *http.Request) {
-    fmt.Println("handler called")
+func (s *Slice) myhandler(w http.ResponseWriter, r *http.Request) {
+  var str string // e.g. "40.765498, -73.980732"
 
-    fmt.Fprint(w, "40.765498, -73.980732")
+  s.mu.Lock()
+  if len(s.geolocation) > 0 {
+    str = s.geolocation[0]
+    s.geolocation = s.geolocation[1:len(s.geolocation)]
+  }
+  s.mu.Unlock()
+
+  fmt.Fprint(w, str)
 }
 
 func FloatToString(input_num float64) string {
-    // to convert a float number to a string
-    return strconv.FormatFloat(input_num, 'f', 6, 64)
+  // to convert a float number to a string
+  return strconv.FormatFloat(input_num, 'f', 6, 64)
 }
 
 func (s *Slice) generatedata() {
-    var longitude = 40.765498
-    var latitude = -73.980732
+  // links:               right:    delta:   
+  // latitude = -74.00,   -73.95    0.5
+  // up:                  down:
+  // longitude = 40.82,   40.70     0.12
 
-    for {
-      str := FloatToString(longitude) + ", " + FloatToString(latitude)
+  for {
+    var longitude = (rand.Float64() * 0.12) + 40.70
+    var latitude = (rand.Float64() * 0.05) - 74.00
 
-      s.mu.Lock()
-      s.s = append(s.s, str)
-      s.mu.Unlock()
+    str := FloatToString(longitude) + ", " + FloatToString(latitude)
 
-      // increment
-      longitude += 0.0001
-      latitude += 0.0001
+    s.mu.Lock()
+    s.geolocation = append(s.geolocation, str)
+    s.mu.Unlock()
 
-      time.Sleep(500 * time.Millisecond)
-    }
+    time.Sleep(500 * time.Millisecond)
+  }
 }
 
 func main() {
-    s := new(Slice)
+  s := new(Slice)
 
-    go s.generatedata()
+  go s.generatedata()
 
-    http.HandleFunc("/", handler)
-    http.HandleFunc("/gettime", func(w http.ResponseWriter, r *http.Request) {
-      s.myhandler(w, r)
-    })
-    //http.HandleFunc("/gettime", handlerGetTime)
-    err := http.ListenAndServe(":8080", nil)
+  http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
+  http.HandleFunc("/", handler)
+  http.HandleFunc("/getgeolocation", func(w http.ResponseWriter, r *http.Request) {
+    s.myhandler(w, r)
+  })
 
-    if err != nil {
-        log.Println(err)
-        os.Exit(1)
-    }
+  err := http.ListenAndServe(":8080", nil)
+
+  if err != nil {
+    log.Println(err)
+    os.Exit(1)
+  }
 }
