@@ -11,12 +11,6 @@ import(
     "math/rand"
 )
 
-// references:
-// http://boundingbox.klokantech.com/
-// http://nirbhay.in/2013/03/ajax-with-go/
-// http://www.sanwebe.com/2013/10/google-map-v3-markers-and-infowindow-with-jquery
-// http://stackoverflow.com/questions/21294014/dropping-marker-on-event-in-google-maps
-
 const resp = `
 <!DOCTYPE html>
 <html>
@@ -74,8 +68,6 @@ function drawSimppleMarker(location) {
 }
 
 function drawCustomMarker(location) {
-  // Add markers to the map
-
   // Marker sizes are expressed as a Size of X,Y
   // where the origin of the image (0,0) is located
   // in the top left of the image.
