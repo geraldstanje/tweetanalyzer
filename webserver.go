@@ -44,10 +44,28 @@ function initialize() {
     //mapTypeId: google.maps.MapTypeId.TERRAIN
   }
   map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
+
+  polygonCoords = [
+    new google.maps.LatLng('40.703286','-74.017739'),
+    new google.maps.LatLng('40.735551','-74.010487'),
+    new google.maps.LatLng('40.752979','-74.007397'),
+    new google.maps.LatLng('40.815891', '-73.960540'),
+    new google.maps.LatLng('40.800966', '-73.929169'),
+    new google.maps.LatLng('40.783921','-73.94145'),
+    new google.maps.LatLng('40.776122','-73.941965'),
+    new google.maps.LatLng('40.739974','-73.972864'),
+    new google.maps.LatLng('40.729308','-73.971663'),
+    new google.maps.LatLng('40.711614','-73.978014'),
+    new google.maps.LatLng('40.706148','-74.00239'),
+    new google.maps.LatLng('40.702114','-74.009671'),
+    new google.maps.LatLng('40.701203','-74.015164')    
+  ]
+ 
+  //makePolygon(polygonCoords);
 }
 
 function delayedPost() {
-  $.post("http://212.197.174.139:8080/getgeolocation", "", function(data, status) {
+  $.post("http://212.197.174.235:8080/getgeolocation", "", function(data, status) {
     var location = data.split(",");
     var myLatlng = new google.maps.LatLng(parseFloat(location[0]), parseFloat(location[1]));
 
@@ -119,6 +137,25 @@ function drawCustomMarker(location) {
     });
   } 
 
+  /* 
+* add markers to the given lat lng
+*
+*/
+function makePolygon(polygonCoords) {
+    var polygon = new google.maps.Polygon({
+       paths: polygonCoords,
+    strokeColor: "#FF0000",
+    strokeOpacity: 0.8,
+    strokeWeight: 2,
+    fillColor: "#FF0000",
+    fillOpacity: 0.35
+ 
+    });
+ 
+polygon.setMap(map);
+   
+}
+
 google.maps.event.addDomListener(window, 'load', initialize);
 
     </script>
@@ -153,22 +190,73 @@ func (s *Slice) myhandler(w http.ResponseWriter, r *http.Request) {
   fmt.Fprint(w, str)
 }
 
-func FloatToString(input_num float64) string {
+func floatToString(input_num float64) string {
   // to convert a float number to a string
   return strconv.FormatFloat(input_num, 'f', 6, 64)
 }
 
-func (s *Slice) generatedata() {
-  // links:               right:    delta:   
-  // latitude = -74.00,   -73.95    0.5
-  // up:                  down:
-  // longitude = 40.82,   40.70     0.12
+func random(min, max float64) float64 {
+  return rand.Float64() * (max - min) + min
+}
+
+func isPointInPolygon(longitude float64, latitude float64) bool {
+  points := [][]float64{{40.703286, -74.017739}, 
+                        {40.735551, -74.010487}, 
+                        {40.752979, -74.007397}, 
+                        {40.815891, -73.960540},
+                        {40.800966, -73.929169},
+                        {40.783921, -73.94145},
+                        {40.776122, -73.941965},
+                        {40.739974, -73.972864},
+                        {40.729308, -73.971663},
+                        {40.711614, -73.978014},
+                        {40.706148, -74.00239},
+                        {40.702114, -74.009671},
+                        {40.701203, -74.015164}}
+
+  var i int
+  var j int
+  var odd_nodes bool
+  var number_of_points int
+
+  number_of_points = len(points)
+  j = number_of_points-1
+  odd_nodes = false
+
+  for i = 0; i < number_of_points; i++ {
+    if (points[i][1]<latitude && points[j][1]>=latitude || points[j][1]<latitude && points[i][1]>=latitude) {
+      if (points[i][0]+(latitude-points[i][1])/(points[j][1]-points[i][1])*(points[j][0]-points[i][0])<longitude) {
+        odd_nodes = !odd_nodes 
+      }
+    }
+    j = i 
+  }
+
+  return odd_nodes
+}
+
+
+func generateRandGeoLoc() (float64, float64) {
+  var longitude float64
+  var latitude float64
 
   for {
-    var longitude = (rand.Float64() * 0.12) + 40.70
-    var latitude = (rand.Float64() * 0.05) - 74.00
+    longitude = random(40.701203, 40.800966)
+    latitude = random(-73.929169, -74.017739)
 
-    str := FloatToString(longitude) + ", " + FloatToString(latitude)
+    retval := isPointInPolygon(longitude, latitude)
+    if retval == true {
+      break
+    }
+  }
+
+  return longitude, latitude
+}
+
+func (s *Slice) generateGeoData() {
+  for {
+    longitude, latitude := generateRandGeoLoc()
+    str := floatToString(longitude) + ", " + floatToString(latitude)
 
     s.mu.Lock()
     s.geolocation = append(s.geolocation, str)
@@ -181,7 +269,7 @@ func (s *Slice) generatedata() {
 func main() {
   s := new(Slice)
 
-  go s.generatedata()
+  go s.generateGeoData()
 
   http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
   http.HandleFunc("/", handler)
