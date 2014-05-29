@@ -9,6 +9,7 @@ import(
     "strconv"
     "sync"
     "math/rand"
+    "math"
 )
 
 const resp = `
@@ -174,6 +175,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 type Slice struct { 
   mu sync.Mutex
   geolocation []string 
+  points [][]float64
 }
 
 // handler to cater AJAX requests
@@ -199,8 +201,8 @@ func random(min, max float64) float64 {
   return rand.Float64() * (max - min) + min
 }
 
-func isPointInPolygon(longitude float64, latitude float64) bool {
-  points := [][]float64{{40.703286, -74.017739}, 
+func (s *Slice) isPointInPolygon(longitude float64, latitude float64) bool {
+  s.points = [][]float64{{40.703286, -74.017739}, 
                         {40.735551, -74.010487}, 
                         {40.752979, -74.007397}, 
                         {40.815891, -73.960540},
@@ -219,13 +221,13 @@ func isPointInPolygon(longitude float64, latitude float64) bool {
   var odd_nodes bool
   var number_of_points int
 
-  number_of_points = len(points)
+  number_of_points = len(s.points)
   j = number_of_points-1
   odd_nodes = false
 
   for i = 0; i < number_of_points; i++ {
-    if (points[i][1]<latitude && points[j][1]>=latitude || points[j][1]<latitude && points[i][1]>=latitude) {
-      if (points[i][0]+(latitude-points[i][1])/(points[j][1]-points[i][1])*(points[j][0]-points[i][0])<longitude) {
+    if (s.points[i][1]<latitude && s.points[j][1]>=latitude || s.points[j][1]<latitude && s.points[i][1]>=latitude) {
+      if (s.points[i][0]+(latitude-s.points[i][1])/(s.points[j][1]-s.points[i][1])*(s.points[j][0]-s.points[i][0])<longitude) {
         odd_nodes = !odd_nodes 
       }
     }
@@ -235,16 +237,39 @@ func isPointInPolygon(longitude float64, latitude float64) bool {
   return odd_nodes
 }
 
+func (s *Slice) minElement(col int) float64 {
+  min := math.MaxFloat64
 
-func generateRandGeoLoc() (float64, float64) {
+  for i := 0; i < len(s.points); i++ {
+    if s.points[i][col] < min {
+      min = s.points[i][col]
+    }
+  }
+
+  return min
+}
+
+func (s *Slice) maxElement(col int) float64 {
+  max := math.SmallestNonzeroFloat64
+
+  for i := 0; i < len(s.points); i++ {
+    if s.points[i][col] > max {
+      max = s.points[i][col]
+    }
+  }
+
+  return max
+}
+
+func (s *Slice) generateRandGeoLoc() (float64, float64) {
   var longitude float64
   var latitude float64
 
   for {
-    longitude = random(40.701203, 40.800966)
-    latitude = random(-73.929169, -74.017739)
+    longitude = random(s.minElement(0), s.maxElement(0))
+    latitude = random(s.minElement(1), s.maxElement(1))
 
-    retval := isPointInPolygon(longitude, latitude)
+    retval := s.isPointInPolygon(longitude, latitude)
     if retval == true {
       break
     }
@@ -255,7 +280,7 @@ func generateRandGeoLoc() (float64, float64) {
 
 func (s *Slice) generateGeoData() {
   for {
-    longitude, latitude := generateRandGeoLoc()
+    longitude, latitude := s.generateRandGeoLoc()
     str := floatToString(longitude) + ", " + floatToString(latitude)
 
     s.mu.Lock()
