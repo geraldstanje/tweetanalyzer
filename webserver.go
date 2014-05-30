@@ -7,9 +7,9 @@ import(
     "fmt"
     "time"
     "strconv"
-    "sync"
     "math/rand"
     "math"
+    "github.com/darkhelmet/twitterstream"
 )
 
 const resp = `
@@ -34,7 +34,7 @@ const resp = `
 var map;
 
 $(document).ready(function () {
-  setInterval("delayedPost()", 1000);
+  setInterval("delayedPost()", 50);
 });
 
 function initialize() {
@@ -45,48 +45,48 @@ function initialize() {
     //mapTypeId: google.maps.MapTypeId.TERRAIN
   }
   map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
-
-  polygonCoords = [
-    new google.maps.LatLng('40.703286','-74.017739'),
-    new google.maps.LatLng('40.735551','-74.010487'),
-    new google.maps.LatLng('40.752979','-74.007397'),
-    new google.maps.LatLng('40.815891', '-73.960540'),
-    new google.maps.LatLng('40.800966', '-73.929169'),
-    new google.maps.LatLng('40.783921','-73.94145'),
-    new google.maps.LatLng('40.776122','-73.941965'),
-    new google.maps.LatLng('40.739974','-73.972864'),
-    new google.maps.LatLng('40.729308','-73.971663'),
-    new google.maps.LatLng('40.711614','-73.978014'),
-    new google.maps.LatLng('40.706148','-74.00239'),
-    new google.maps.LatLng('40.702114','-74.009671'),
-    new google.maps.LatLng('40.701203','-74.015164')    
-  ]
  
-  //makePolygon(polygonCoords);
+  //makePolygon();
 }
 
 function delayedPost() {
-  $.post("http://212.197.174.235:8080/getgeolocation", "", function(data, status) {
-    var location = data.split(",");
-    var myLatlng = new google.maps.LatLng(parseFloat(location[0]), parseFloat(location[1]));
+  $.post("http://193.80.91.154:8080/getlatlongtext", "", function(data, status) {
+    if(data.length > 0) {
+      var string_split = data.split(",");
+      var myLatlng = new google.maps.LatLng(parseFloat(string_split[0]), parseFloat(string_split[1]));
 
-    //drawSimppleMarker(myLatlng);
+      //drawSimppleMarker(myLatlng, string_split[2]);
 
-    //drawCustomMarker(myLatlng);
+      //drawCustomMarker(myLatlng, string_split[2]);
 
-    drawCircle(myLatlng);
+      drawCircle(myLatlng, string_split[2]);
+    }
   });
 }
 
-function drawSimppleMarker(location) {
+function drawSimppleMarker(location, text) {
+  var infowindow = new google.maps.InfoWindow({
+    content: text,
+    maxWidth: 200
+  });
+
   var marker = new google.maps.Marker({
     position: location,
     map: map,
     title: 'Some location'
   });
+
+  google.maps.event.addListener(marker, 'click', function() {
+    infowindow.open(map,marker);
+  });
 }
 
-function drawCustomMarker(location) {
+function drawCustomMarker(location, text) {
+  var infowindow = new google.maps.InfoWindow({
+    content: text,
+    maxWidth: 200
+  });
+
   // Marker sizes are expressed as a Size of X,Y
   // where the origin of the image (0,0) is located
   // in the top left of the image.
@@ -109,52 +109,80 @@ function drawCustomMarker(location) {
   // coordinate closes the poly by connecting to the first
   // coordinate.
   var shape = {
-      coords: [1, 1, 1, 20, 18, 20, 18 , 1],
-      type: 'poly'
+    coords: [1, 1, 1, 20, 18, 20, 18 , 1],
+    type: 'poly'
   };
   
   var marker = new google.maps.Marker({
-        position: location,
-        map: map,
-        icon: image,
-        shape: shape,
-        title: 'Some location'//,
-        //zIndex: 0
-    });
-  }
+    position: location,
+    map: map,
+    icon: image,
+    shape: shape,
+    title: 'Some location',
+    zIndex: 0
+  });
 
-  function drawCircle(location) {
-    // Add a Circle overlay to the map.
-    var circle = new google.maps.Circle({
-        center: location,
-        radius: 100,
-        strokeColor: "#FF0000",
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: "#FF0000",
-        fillOpacity: 0.35,
-        map: map,
-        title: 'Some location'
-    });
-  } 
+  google.maps.event.addListener(marker, 'click', function() {
+    infowindow.open(map,marker);
+  });
+}
 
-  /* 
-* add markers to the given lat lng
-*
-*/
-function makePolygon(polygonCoords) {
-    var polygon = new google.maps.Polygon({
-       paths: polygonCoords,
+function HandleInfoWindow(latLng, content) {
+  var infoWindow = new google.maps.InfoWindow({
+    maxWidth: 420
+  });
+
+  infoWindow.setContent(content);
+  infoWindow.setPosition(latLng);
+  infoWindow.open(map);
+}
+
+function drawCircle(location, text) {
+  // Add a Circle overlay to the map.
+  var circle = new google.maps.Circle({
+    center: location,
+    radius: 100,
     strokeColor: "#FF0000",
     strokeOpacity: 0.8,
     strokeWeight: 2,
     fillColor: "#FF0000",
-    fillOpacity: 0.35
+    fillOpacity: 0.35,
+    map: map,
+    title: 'Some location'
+  });
+
+  google.maps.event.addListener(circle, 'click', function() {
+    HandleInfoWindow(location, text)
+  });
+} 
+
+function makePolygon() {
+  polygonCoords = [
+    new google.maps.LatLng('40.703286','-74.017739'),
+    new google.maps.LatLng('40.735551','-74.010487'),
+    new google.maps.LatLng('40.752979','-74.007397'),
+    new google.maps.LatLng('40.815891', '-73.960540'),
+    new google.maps.LatLng('40.800966', '-73.929169'),
+    new google.maps.LatLng('40.783921','-73.94145'),
+    new google.maps.LatLng('40.776122','-73.941965'),
+    new google.maps.LatLng('40.739974','-73.972864'),
+    new google.maps.LatLng('40.729308','-73.971663'),
+    new google.maps.LatLng('40.711614','-73.978014'),
+    new google.maps.LatLng('40.706148','-74.00239'),
+    new google.maps.LatLng('40.702114','-74.009671'),
+    new google.maps.LatLng('40.701203','-74.015164')    
+  ]
+
+  var polygon = new google.maps.Polygon({
+    paths: polygonCoords,
+    strokeColor: "#FF0000",
+    strokeOpacity: 0.8,
+    strokeWeight: 2,
+    fillColor: "#FF0000",
+    fillOpacity: 0.35 
+  });
  
-    });
- 
-polygon.setMap(map);
-   
+  polygon.setMap(map); 
 }
 
 google.maps.event.addDomListener(window, 'load', initialize);
@@ -172,24 +200,18 @@ func handler(w http.ResponseWriter, r *http.Request) {
   w.Write([]byte(resp))
 }
 
-type Slice struct { 
-  mu sync.Mutex
-  geolocation []string 
+type Slice struct {
+  channel chan string
   points [][]float64
 }
 
 // handler to cater AJAX requests
 func (s *Slice) myhandler(w http.ResponseWriter, r *http.Request) {
-  var str string // e.g. "40.765498, -73.980732"
-
-  s.mu.Lock()
-  if len(s.geolocation) > 0 {
-    str = s.geolocation[0]
-    s.geolocation = s.geolocation[1:len(s.geolocation)]
+  select {
+  case str := <-s.channel:
+    fmt.Fprint(w, str)
+  default: return
   }
-  s.mu.Unlock()
-
-  fmt.Fprint(w, str)
 }
 
 func floatToString(input_num float64) string {
@@ -201,6 +223,7 @@ func random(min, max float64) float64 {
   return rand.Float64() * (max - min) + min
 }
 
+// reference: http://alienryderflex.com/polygon/
 func (s *Slice) isPointInPolygon(longitude float64, latitude float64) bool {
   s.points = [][]float64{{40.703286, -74.017739}, 
                         {40.735551, -74.010487}, 
@@ -279,26 +302,87 @@ func (s *Slice) generateRandGeoLoc() (float64, float64) {
 }
 
 func (s *Slice) generateGeoData() {
+  tweet_count := 0
+
   for {
     longitude, latitude := s.generateRandGeoLoc()
-    str := floatToString(longitude) + ", " + floatToString(latitude)
 
-    s.mu.Lock()
-    s.geolocation = append(s.geolocation, str)
-    s.mu.Unlock()
+    str := floatToString(longitude) + ", " + floatToString(latitude) + ", " + "tweet"
+    s.channel <- str
 
-    time.Sleep(500 * time.Millisecond)
+    tweet_count += 1
+    fmt.Println(tweet_count)
+
+    time.Sleep(10 * time.Millisecond)
+  }
+}
+
+func (s *Slice) min(a, b int) int {
+  if a < b {
+  return a
+  }
+
+  return b
+}
+
+func (s *Slice) decode(conn *twitterstream.Connection) {
+  tweet_count := 0
+
+  for {
+    if tweet, err := conn.Next(); err == nil {
+      var str string
+      coord := tweet.Coordinates
+
+      if coord != nil {
+        str = floatToString(float64(coord.Lat)) + ", " + floatToString(float64(coord.Long)) + ", " + "@" + tweet.User.ScreenName + ": " + tweet.Text
+
+        s.channel <- str
+
+        tweet_count += 1
+        fmt.Println(tweet_count)
+      }
+    } else {
+      fmt.Printf("Failed decoding tweet: %s", err)
+      return
+    }
+  }
+}
+
+func (s *Slice) twitterStream() {
+  var wait = 1
+  var maxWait = 600 // Seconds
+
+  client := twitterstream.NewClient("l76vc0wSlg9UBGx6Pt2KuEdkY", "0SUxkYDe4opkkoz1Hj72DNYRObQcmiAMHHE5VUjJRmwDk55RUs", "957672396-4rvqhNjhM9nncGDyxcjYXnoUvSYrenKFGMtTDMBZ", "Xp5c2fojBo2DlEm0ScXwtW9WbF2dYznvstEG75CrZs9fQ")
+  client.Timeout = 0
+
+  for {
+      // latitude/longitude of NY
+      conn, err := client.Locations(twitterstream.Point{40, -74}, twitterstream.Point{41, -73})
+
+      if err != nil {
+        log.Println(err)
+        wait = wait << 1 // exponential backoff
+        log.Printf("waiting for %d seconds before reconnect", s.min(wait, maxWait))
+        time.Sleep(time.Duration(s.min(wait, maxWait)) * time.Second)
+        continue
+      } else {
+        wait = 1
+      }
+
+      s.decode(conn)
   }
 }
 
 func main() {
   s := new(Slice)
+  s.channel = make(chan string, 500) 
 
+  //go s.twitterStream()
   go s.generateGeoData()
 
   http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
   http.HandleFunc("/", handler)
-  http.HandleFunc("/getgeolocation", func(w http.ResponseWriter, r *http.Request) {
+  http.HandleFunc("/getlatlongtext", func(w http.ResponseWriter, r *http.Request) {
     s.myhandler(w, r)
   })
 
