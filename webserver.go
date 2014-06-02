@@ -9,6 +9,7 @@ import(
     "strconv"
     "math/rand"
     "math"
+    "runtime"
     "github.com/darkhelmet/twitterstream"
 )
 
@@ -32,6 +33,7 @@ const resp = `
     <script>
 
 var map;
+var URL="http://194.96.77.18:8080/getlatlongtext";
 
 $(document).ready(function () {
   setInterval("delayedPost()", 50);
@@ -50,7 +52,7 @@ function initialize() {
 }
 
 function delayedPost() {
-  $.post("http://193.80.91.154:8080/getlatlongtext", "", function(data, status) {
+  $.post(URL, "", function(data, status) {
     if(data.length > 0) {
       var string_split = data.split(",");
       var myLatlng = new google.maps.LatLng(parseFloat(string_split[0]), parseFloat(string_split[1]));
@@ -352,7 +354,10 @@ func (s *Slice) twitterStream() {
   var wait = 1
   var maxWait = 600 // Seconds
 
-  client := twitterstream.NewClient("l76vc0wSlg9UBGx6Pt2KuEdkY", "0SUxkYDe4opkkoz1Hj72DNYRObQcmiAMHHE5VUjJRmwDk55RUs", "957672396-4rvqhNjhM9nncGDyxcjYXnoUvSYrenKFGMtTDMBZ", "Xp5c2fojBo2DlEm0ScXwtW9WbF2dYznvstEG75CrZs9fQ")
+  client := twitterstream.NewClient("xxx", 
+                                    "xxx", 
+                                    "xxx", 
+                                    "xxx")
   client.Timeout = 0
 
   for {
@@ -374,8 +379,10 @@ func (s *Slice) twitterStream() {
 }
 
 func main() {
+  runtime.GOMAXPROCS(runtime.NumCPU())
+
   s := new(Slice)
-  s.channel = make(chan string, 500) 
+  s.channel = make(chan string, 1000) // buffered channel with 1000 entries 
 
   //go s.twitterStream()
   go s.generateGeoData()
