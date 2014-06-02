@@ -10,196 +10,18 @@ import(
     "math/rand"
     "math"
     "runtime"
+    "io/ioutil"
     "github.com/darkhelmet/twitterstream"
 )
 
-const resp = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Realtime Map</title>
-    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
-    <meta charset="utf-8">
-    <style>
-      html, body, #map-canvas {
-            height: 100%;
-            margin: 0px;
-            padding: 0px
-    }
-    </style>
-
-    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
-    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBy9hZSnE48aRbGD8zQAHRrtlOsk_H27BU&sensor=false"></script>
-    <script>
-
-var map;
-var URL="http://194.96.77.18:8080/getlatlongtext";
-
-$(document).ready(function () {
-  setInterval("delayedPost()", 50);
-});
-
-function initialize() {
-  var NY = new google.maps.LatLng(40.760837, -73.981847); // (40.784148,-73.966140);
-  var mapOptions = {
-    zoom: 13,
-    center: NY//,
-    //mapTypeId: google.maps.MapTypeId.TERRAIN
-  }
-  map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
- 
-  //makePolygon();
-}
-
-function delayedPost() {
-  $.post(URL, "", function(data, status) {
-    if(data.length > 0) {
-      var string_split = data.split(",");
-      var myLatlng = new google.maps.LatLng(parseFloat(string_split[0]), parseFloat(string_split[1]));
-
-      //drawSimppleMarker(myLatlng, string_split[2]);
-
-      //drawCustomMarker(myLatlng, string_split[2]);
-
-      drawCircle(myLatlng, string_split[2]);
-    }
-  });
-}
-
-function drawSimppleMarker(location, text) {
-  var infowindow = new google.maps.InfoWindow({
-    content: text,
-    maxWidth: 200
-  });
-
-  var marker = new google.maps.Marker({
-    position: location,
-    map: map,
-    title: 'Some location'
-  });
-
-  google.maps.event.addListener(marker, 'click', function() {
-    infowindow.open(map,marker);
-  });
-}
-
-function drawCustomMarker(location, text) {
-  var infowindow = new google.maps.InfoWindow({
-    content: text,
-    maxWidth: 200
-  });
-
-  // Marker sizes are expressed as a Size of X,Y
-  // where the origin of the image (0,0) is located
-  // in the top left of the image.
-
-  // Origins, anchor positions and coordinates of the marker
-  // increase in the X direction to the right and in
-  // the Y direction down.
-  var image = {
-    url: '/images/beachflag.png',
-    // This marker is 20 pixels wide by 32 pixels tall.
-    size: new google.maps.Size(20, 32),
-    // The origin for this image is 0,0.
-    origin: new google.maps.Point(0,0),
-    // The anchor for this image is the base of the flagpole at 0,32.
-    anchor: new google.maps.Point(0, 32)
-  };
-  // Shapes define the clickable region of the icon.
-  // The type defines an HTML &lt;area&gt; element 'poly' which
-  // traces out a polygon as a series of X,Y points. The final
-  // coordinate closes the poly by connecting to the first
-  // coordinate.
-  var shape = {
-    coords: [1, 1, 1, 20, 18, 20, 18 , 1],
-    type: 'poly'
-  };
-  
-  var marker = new google.maps.Marker({
-    position: location,
-    map: map,
-    icon: image,
-    shape: shape,
-    title: 'Some location',
-    zIndex: 0
-  });
-
-  google.maps.event.addListener(marker, 'click', function() {
-    infowindow.open(map,marker);
-  });
-}
-
-function HandleInfoWindow(latLng, content) {
-  var infoWindow = new google.maps.InfoWindow({
-    maxWidth: 420
-  });
-
-  infoWindow.setContent(content);
-  infoWindow.setPosition(latLng);
-  infoWindow.open(map);
-}
-
-function drawCircle(location, text) {
-  // Add a Circle overlay to the map.
-  var circle = new google.maps.Circle({
-    center: location,
-    radius: 100,
-    strokeColor: "#FF0000",
-    strokeOpacity: 0.8,
-    strokeWeight: 2,
-    fillColor: "#FF0000",
-    fillOpacity: 0.35,
-    map: map,
-    title: 'Some location'
-  });
-
-  google.maps.event.addListener(circle, 'click', function() {
-    HandleInfoWindow(location, text)
-  });
-} 
-
-function makePolygon() {
-  polygonCoords = [
-    new google.maps.LatLng('40.703286','-74.017739'),
-    new google.maps.LatLng('40.735551','-74.010487'),
-    new google.maps.LatLng('40.752979','-74.007397'),
-    new google.maps.LatLng('40.815891', '-73.960540'),
-    new google.maps.LatLng('40.800966', '-73.929169'),
-    new google.maps.LatLng('40.783921','-73.94145'),
-    new google.maps.LatLng('40.776122','-73.941965'),
-    new google.maps.LatLng('40.739974','-73.972864'),
-    new google.maps.LatLng('40.729308','-73.971663'),
-    new google.maps.LatLng('40.711614','-73.978014'),
-    new google.maps.LatLng('40.706148','-74.00239'),
-    new google.maps.LatLng('40.702114','-74.009671'),
-    new google.maps.LatLng('40.701203','-74.015164')    
-  ]
-
-  var polygon = new google.maps.Polygon({
-    paths: polygonCoords,
-    strokeColor: "#FF0000",
-    strokeOpacity: 0.8,
-    strokeWeight: 2,
-    fillColor: "#FF0000",
-    fillOpacity: 0.35 
-  });
- 
-  polygon.setMap(map); 
-}
-
-google.maps.event.addDomListener(window, 'load', initialize);
-
-    </script>
-
-  </head>
-  <body>
-    <div id="map-canvas"></div>
-  </body>
-</html>`
-
 // handler for the main page
-func handler(w http.ResponseWriter, r *http.Request) {
-  w.Write([]byte(resp))
+func HomeHandler(response http.ResponseWriter, request *http.Request){
+  response.Header().Set("Content-type", "text/html")
+  webpage, err := ioutil.ReadFile("home.html")
+  if err != nil { 
+    http.Error(response, fmt.Sprintf("home.html file error %v", err), 500)
+  }
+  fmt.Fprint(response, string(webpage));
 }
 
 type Slice struct {
@@ -388,7 +210,7 @@ func main() {
   go s.generateGeoData()
 
   http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
-  http.HandleFunc("/", handler)
+  http.Handle("/", http.HandlerFunc(HomeHandler))
   http.HandleFunc("/getlatlongtext", func(w http.ResponseWriter, r *http.Request) {
     s.myhandler(w, r)
   })
