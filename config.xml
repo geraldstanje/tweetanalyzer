@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <ip>212.197.171.151</ip>
+  <port>8080</port>
+  <twitter>
+    <consumerKey>XXX</consumerKey>
+    <consumerSecret>XXX</consumerSecret>
+    <accessToken>XXX</accessToken>
+    <accessSecret>XXX</accessSecret>
+  </twitter>
+  <instagram>
+    <clientID>XXX</clientID>
+    <clientSecret>XXX</clientSecret>
+    <!-- get access token: https://instagram.com/oauth/authorize/?client_id=XXX&redirect_uri=XXX&response_type=token -->
+    <accessToken>XXX</accessToken> 
+    <callbackURL>/instagram</callbackURL>
+  </instagram>
+</config>
