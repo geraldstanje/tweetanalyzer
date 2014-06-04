@@ -35,7 +35,7 @@ type RealtimeAnalyzer struct {
   mu sync.Mutex
   start bool
   ActiveClients map[string]Client
-  instagramClient* instagram.Client
+  instagramClient *instagram.Client
   subscriptionIdUptown string
   subscriptionIdDowntown string
   channel chan string
@@ -274,7 +274,19 @@ func (s *RealtimeAnalyzer) decode(conn *twitterstream.Connection) {
       coord := tweet.Coordinates
 
       if coord != nil {
-        str = floatToString(float64(coord.Lat)) + ", " + floatToString(float64(coord.Long)) + ", " + tweet.User.ScreenName + ": " + tweet.Text + ", 0"
+        reg, err := regexp.Compile(`https?://t\.co/[a-zA-Z0-9]{0,10}`)
+        if err != nil {
+          fmt.Printf("Regex definition failed: %s", err)
+          return
+        }
+
+        tweetStr := tweet.Text
+        link := reg.FindAllString(tweetStr, -1)
+        if link != nil {
+          tweetStr = strings.Replace(tweetStr, link[0], "<br><a href=\"" + link[0] + "\">" + link[0] + "</a>", -1)
+        }
+
+        str = floatToString(float64(coord.Lat)) + ", " + floatToString(float64(coord.Long)) + ", " + tweet.User.ScreenName + ": " + "<br>" + tweetStr + ", 0"
 
         s.channel <- str
       }
@@ -349,6 +361,7 @@ func (s *RealtimeAnalyzer) InstagramStream(conf Config) {
 
   time.Sleep(1 * time.Second)
 
+  // check radius with: http://www.freemaptools.com/radius-around-point.htm
   // subscribe to Manhattan uptown area
   res, err = s.instagramClient.Realtime.SubscribeToGeography("40.790716", "-73.955841", "5000", "http://" + conf.IPAddress + ":" + conf.Port + conf.InstagramConfig.CallbackURL)
   if err != nil {
@@ -393,7 +406,7 @@ func (s *RealtimeAnalyzer) getRecentMediaUptown(Time int64) {
 
     str = media[0].User.Username
     if media[0].Caption != nil {
-      str = str + ": " + media[0].Caption.Text + " " + media[0].Link
+      str = str + ": " + "<br>" + media[0].Caption.Text + " " + "<br><a href=\"" + media[0].Link + "\">" + media[0].Link + "</a>"
     }
 
     str = floatToString(media[0].Location.Latitude) + ", " + floatToString(media[0].Location.Longitude) + ", " + str + ", 1"
@@ -422,7 +435,7 @@ func (s *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
 
     str = media[0].User.Username
     if media[0].Caption != nil {
-      str = str + ": " + media[0].Caption.Text
+      str = str + ": " + "<br>" + media[0].Caption.Text + " " + "<br><a href=\"" + media[0].Link + "\">" + media[0].Link + "</a>"
     }
 
     str = floatToString(media[0].Location.Latitude) + ", " + floatToString(media[0].Location.Longitude) + ", " + str + ", 1"
@@ -430,7 +443,6 @@ func (s *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
   }
 }
 
-// http://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis
 func (s *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Request) {
   if r.Method == "GET" && r.FormValue("hub.mode") == "subscribe" && r.FormValue("hub.challenge") != "" {
     r.ParseForm()
