@@ -89,7 +89,7 @@ func readConfig(filename string) (Config, error) {
 
 func changeIPAddress(filename string, newStr string) (error) {
     if len(filename) == 0 {
-        return nil
+        return fmt.Errorf("Error: invalid len of file")
     }
 
     b, err := ioutil.ReadFile(filename)
@@ -101,13 +101,15 @@ func changeIPAddress(filename string, newStr string) (error) {
 
     reg, err := regexp.Compile(`[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}:[0-9]{2,5}/sock";`)
     if err != nil {
-      log.Fatal(err)
+      return err
     }
 
     ips := reg.FindAllString(s, -1)
 
-    newStr += "/sock\";"
-    s = strings.Replace(s, ips[0], newStr, -1)
+    for _, ip := range ips {
+      newStr += "/sock\";"
+      s = strings.Replace(s, ip, newStr, -1)
+    }
 
     err = ioutil.WriteFile(filename, []byte(s), 0644)
     if err != nil { 
@@ -127,8 +129,8 @@ func HomeHandler(response http.ResponseWriter, request *http.Request) {
   fmt.Fprint(response, string(webpage));
 }
 
+// to convert a float number to a string
 func floatToString(input_num float64) string {
-  // to convert a float number to a string
   return strconv.FormatFloat(input_num, 'f', 6, 64)
 }
 
@@ -137,33 +139,33 @@ func random(min, max float64) float64 {
 }
 
 // reference: http://alienryderflex.com/polygon/
-func (s *RealtimeAnalyzer) isPointInPolygon(longitude float64, latitude float64) bool {
-  s.points = [][]float64{{40.703286, -74.017739}, 
-                        {40.735551, -74.010487}, 
-                        {40.752979, -74.007397}, 
-                        {40.815891, -73.960540},
-                        {40.800966, -73.929169},
-                        {40.783921, -73.94145},
-                        {40.776122, -73.941965},
-                        {40.739974, -73.972864},
-                        {40.729308, -73.971663},
-                        {40.711614, -73.978014},
-                        {40.706148, -74.00239},
-                        {40.702114, -74.009671},
-                        {40.701203, -74.015164}}
+func (rt *RealtimeAnalyzer) isPointInPolygon(longitude float64, latitude float64) bool {
+  rt.points = [][]float64{{40.703286, -74.017739}, 
+                          {40.735551, -74.010487}, 
+                          {40.752979, -74.007397}, 
+                          {40.815891, -73.960540},
+                          {40.800966, -73.929169},
+                          {40.783921, -73.94145},
+                          {40.776122, -73.941965},
+                          {40.739974, -73.972864},
+                          {40.729308, -73.971663},
+                          {40.711614, -73.978014},
+                          {40.706148, -74.00239},
+                          {40.702114, -74.009671},
+                          {40.701203, -74.015164}}
 
   var i int
   var j int
   var odd_nodes bool
   var number_of_points int
 
-  number_of_points = len(s.points)
+  number_of_points = len(rt.points)
   j = number_of_points-1
   odd_nodes = false
 
   for i = 0; i < number_of_points; i++ {
-    if (s.points[i][1]<latitude && s.points[j][1]>=latitude || s.points[j][1]<latitude && s.points[i][1]>=latitude) {
-      if (s.points[i][0]+(latitude-s.points[i][1])/(s.points[j][1]-s.points[i][1])*(s.points[j][0]-s.points[i][0])<longitude) {
+    if (rt.points[i][1]<latitude && rt.points[j][1]>=latitude || rt.points[j][1]<latitude && rt.points[i][1]>=latitude) {
+      if (rt.points[i][0]+(latitude-rt.points[i][1])/(rt.points[j][1]-rt.points[i][1])*(rt.points[j][0]-rt.points[i][0])<longitude) {
         odd_nodes = !odd_nodes 
       }
     }
@@ -173,39 +175,39 @@ func (s *RealtimeAnalyzer) isPointInPolygon(longitude float64, latitude float64)
   return odd_nodes
 }
 
-func (s *RealtimeAnalyzer) minElement(col int) float64 {
+func (rt *RealtimeAnalyzer) minElement(col int) float64 {
   min := math.MaxFloat64
 
-  for i := 0; i < len(s.points); i++ {
-    if s.points[i][col] < min {
-      min = s.points[i][col]
+  for i := 0; i < len(rt.points); i++ {
+    if rt.points[i][col] < min {
+      min = rt.points[i][col]
     }
   }
 
   return min
 }
 
-func (s *RealtimeAnalyzer) maxElement(col int) float64 {
+func (rt *RealtimeAnalyzer) maxElement(col int) float64 {
   max := math.SmallestNonzeroFloat64
 
-  for i := 0; i < len(s.points); i++ {
-    if s.points[i][col] > max {
-      max = s.points[i][col]
+  for i := 0; i < len(rt.points); i++ {
+    if rt.points[i][col] > max {
+      max = rt.points[i][col]
     }
   }
 
   return max
 }
 
-func (s *RealtimeAnalyzer) generateRandGeoLoc() (float64, float64) {
+func (rt *RealtimeAnalyzer) generateRandGeoLoc() (float64, float64) {
   var longitude float64
   var latitude float64
 
   for {
-    longitude = random(s.minElement(0), s.maxElement(0))
-    latitude = random(s.minElement(1), s.maxElement(1))
+    longitude = random(rt.minElement(0), rt.maxElement(0))
+    latitude = random(rt.minElement(1), rt.maxElement(1))
 
-    retval := s.isPointInPolygon(longitude, latitude)
+    retval := rt.isPointInPolygon(longitude, latitude)
     if retval == true {
       break
     }
@@ -214,47 +216,50 @@ func (s *RealtimeAnalyzer) generateRandGeoLoc() (float64, float64) {
   return longitude, latitude
 }
 
-func (s *RealtimeAnalyzer) generateGeoData() {
-
+func (rt *RealtimeAnalyzer) generateGeoData() {
   for {
-    longitude, latitude := s.generateRandGeoLoc()
+    longitude, latitude := rt.generateRandGeoLoc()
 
-    str := floatToString(longitude) + ", " + floatToString(latitude) + ", " + "tweet" + ", 0"
-    s.channel <- str
+    str := floatToString(longitude) + ", " + 
+           floatToString(latitude) + ", " + 
+           "tweet" + ", " +
+           "0"
+
+    rt.channel <- str
 
     time.Sleep(50 * time.Millisecond)
   }
 }
 
-func (s *RealtimeAnalyzer) min(a, b int) int {
+func (rt *RealtimeAnalyzer) min(a, b int) int {
   if a < b {
-  return a
+    return a
   }
 
   return b
 }
 
-func (s *RealtimeAnalyzer) broadcastData() {
+func (rt *RealtimeAnalyzer) broadcastData() {
   var Message  = websocket.Message 
   var err error
   tweet_count := 0
 
   for {
     select {
-      case str := <-s.channel:
-        for ip, _ := range s.ActiveClients {
-          if err = Message.Send(s.ActiveClients[ip].websocket, str); err != nil {
+      case str := <-rt.channel:
+        for ip, _ := range rt.ActiveClients {
+          if err = Message.Send(rt.ActiveClients[ip].websocket, str); err != nil {
             // we could not send the message to a peer
             log.Println("Could not send message to ", ip, err.Error())
 
             // work-around: https://code.google.com/p/go/issues/detail?id=3117
-            var tmp = s.ActiveClients[ip]
+            var tmp = rt.ActiveClients[ip]
             tmp.errorCount += 1 
-            s.ActiveClients[ip] = tmp 
+            rt.ActiveClients[ip] = tmp 
 
-            if s.ActiveClients[ip].errorCount >= errorCounterMax {
+            if rt.ActiveClients[ip].errorCount >= errorCounterMax {
               log.Println("Client disconnected:", ip)
-              delete(s.ActiveClients, ip)
+              delete(rt.ActiveClients, ip)
             }
           }
         }
@@ -267,28 +272,53 @@ func (s *RealtimeAnalyzer) broadcastData() {
   }
 }
 
-func (s *RealtimeAnalyzer) decode(conn *twitterstream.Connection) {
+func (rt *RealtimeAnalyzer) formatTwitterData(tweet *twitterstream.Tweet) (string, error) {
+  var comment string
+
+  if tweet.Coordinates == nil {
+    return "", fmt.Errorf("Tweet without geolocation set")
+  }
+
+  reg, err := regexp.Compile(`https?://t\.co/[a-zA-Z0-9]{0,10}`)
+  if err != nil {
+    return "", fmt.Errorf("Regex definition failed: %s", err)
+  }
+
+  reg2, err := regexp.Compile(`pic.twitter.com/[a-zA-Z0-9]{0,10}`)
+  if err != nil {
+    return "", fmt.Errorf("Regex definition failed: %s", err)
+  }
+
+  comment = tweet.Text
+
+  link1 := reg.FindAllString(comment, -1)
+  if link1 != nil {
+    comment = strings.Replace(comment, link1[0], "<br><a href=\"" + link1[0] + "\">" + link1[0] + "</a>", -1)
+  }
+        
+  if link1 == nil {
+    link2 := reg2.FindAllString(comment, -1)
+
+    if link2 != nil {
+      comment = strings.Replace(comment, link2[0], "<br><a href=\"" + link2[0] + "\">" + link2[0] + "</a>", -1)
+    }
+  }
+
+  comment = floatToString(float64(tweet.Coordinates.Lat)) + ", " + 
+            floatToString(float64(tweet.Coordinates.Long)) + ", " + 
+            tweet.User.ScreenName + ": " + 
+            "<br>" + comment + ", " +
+            "0"
+  return comment, nil
+}
+
+func (rt *RealtimeAnalyzer) decode(conn *twitterstream.Connection) {
   for {
     if tweet, err := conn.Next(); err == nil {
-      var str string
-      coord := tweet.Coordinates
+      comment, err := rt.formatTwitterData(tweet)
 
-      if coord != nil {
-        reg, err := regexp.Compile(`https?://t\.co/[a-zA-Z0-9]{0,10}`)
-        if err != nil {
-          fmt.Printf("Regex definition failed: %s", err)
-          return
-        }
-
-        tweetStr := tweet.Text
-        link := reg.FindAllString(tweetStr, -1)
-        if link != nil {
-          tweetStr = strings.Replace(tweetStr, link[0], "<br><a href=\"" + link[0] + "\">" + link[0] + "</a>", -1)
-        }
-
-        str = floatToString(float64(coord.Lat)) + ", " + floatToString(float64(coord.Long)) + ", " + tweet.User.ScreenName + ": " + "<br>" + tweetStr + ", 0"
-
-        s.channel <- str
+      if err == nil {
+        rt.channel <- comment
       }
     } else {
       fmt.Printf("Failed decoding tweet: %s", err)
@@ -297,11 +327,11 @@ func (s *RealtimeAnalyzer) decode(conn *twitterstream.Connection) {
   }
 }
 
-func (s *RealtimeAnalyzer) twitterStream(config TwitterConfig) {
+func (rt *RealtimeAnalyzer) twitterStream(config Config) {
   var wait = 1
   var maxWait = 600 // Seconds
 
-  client := twitterstream.NewClient(config.ConsumerKey, config.ConsumerSecret, config.AccessToken, config.AccessSecret)
+  client := twitterstream.NewClient(config.TwitterConfig.ConsumerKey, config.TwitterConfig.ConsumerSecret, config.TwitterConfig.AccessToken, config.TwitterConfig.AccessSecret)
   client.Timeout = 0
 
   for {
@@ -309,22 +339,22 @@ func (s *RealtimeAnalyzer) twitterStream(config TwitterConfig) {
       conn, err := client.Locations(twitterstream.Point{40, -74}, twitterstream.Point{41, -73})
 
       if err != nil {
-        log.Println(err)
         wait = wait << 1 // exponential backoff
-        log.Printf("waiting for %d seconds before reconnect", s.min(wait, maxWait))
-        time.Sleep(time.Duration(s.min(wait, maxWait)) * time.Second)
+        log.Printf(err.Error())
+        log.Printf("waiting for %d seconds before reconnect", rt.min(wait, maxWait))
+        time.Sleep(time.Duration(rt.min(wait, maxWait)) * time.Second)
         continue
       } else {
         wait = 1
       }
 
-      s.decode(conn)
+      rt.decode(conn)
   }
 }
 
 // reference: https://github.com/Niessy/websocket-golang-chat
 // WebSocket server to handle chat between clients
-func (s *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
+func (rt *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
   var err error
 
   // cleanup on server side
@@ -336,65 +366,81 @@ func (s *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
 
   client := ws.Request().RemoteAddr
   log.Println("New client connected:", client)
-  s.ActiveClients[client] = Client{0, ws, client}
+  rt.ActiveClients[client] = Client{0, ws, client}
 
   // for loop so the websocket stays open otherwise it'll close
   for {
-    time.Sleep(1 * time.Second)
+    time.Sleep(1 * time.Second) // TODO: do we need a delay?
   }
 }
 
 // http://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis
-func (s *RealtimeAnalyzer) InstagramStream(conf Config) {
-  time.Sleep(1 * time.Second)
+func (rt *RealtimeAnalyzer) InstagramStream(conf Config) {
+  time.Sleep(1 * time.Second) // TODO: do we need a delay?
  
-  s.instagramClient = instagram.NewClient(nil)
-  s.instagramClient.ClientID = conf.InstagramConfig.ClientID
-  s.instagramClient.ClientSecret = conf.InstagramConfig.ClientSecret
-  s.instagramClient.AccessToken = conf.InstagramConfig.AccessToken
+  rt.instagramClient = instagram.NewClient(nil)
+  rt.instagramClient.ClientID = conf.InstagramConfig.ClientID
+  rt.instagramClient.ClientSecret = conf.InstagramConfig.ClientSecret
+  rt.instagramClient.AccessToken = conf.InstagramConfig.AccessToken
 
-  res, err := s.instagramClient.Realtime.DeleteAllSubscriptions()
+  res, err := rt.instagramClient.Realtime.DeleteAllSubscriptions()
   if err != nil {
     fmt.Println("client.Realtime.DeleteAllSubscriptions returned error: ", err)
     return
   }
 
-  time.Sleep(1 * time.Second)
+  time.Sleep(1 * time.Second) // TODO: do we need a delay?
 
   // check radius with: http://www.freemaptools.com/radius-around-point.htm
   // subscribe to Manhattan uptown area
-  res, err = s.instagramClient.Realtime.SubscribeToGeography("40.790716", "-73.955841", "5000", "http://" + conf.IPAddress + ":" + conf.Port + conf.InstagramConfig.CallbackURL)
+  res, err = rt.instagramClient.Realtime.SubscribeToGeography("40.790716", "-73.955841", "5000", "http://" + conf.IPAddress + ":" + conf.Port + conf.InstagramConfig.CallbackURL)
   if err != nil {
     fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
     return
   }
 
-  s.subscriptionIdUptown = res.ObjectID
+  rt.subscriptionIdUptown = res.ObjectID
 
   // subscribe to Manhattan downtown area
-  res, err = s.instagramClient.Realtime.SubscribeToGeography("40.711446", "-74.007968", "5000", "http://" + conf.IPAddress + ":" + conf.Port + conf.InstagramConfig.CallbackURL)
+  res, err = rt.instagramClient.Realtime.SubscribeToGeography("40.711446", "-74.007968", "5000", "http://" + conf.IPAddress + ":" + conf.Port + conf.InstagramConfig.CallbackURL)
   if err != nil {
     fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
     return
   }
 
-  s.subscriptionIdDowntown = res.ObjectID
+  rt.subscriptionIdDowntown = res.ObjectID
 
-
-  time.Sleep(5 * time.Second)
-  s.start = true
+  time.Sleep(5 * time.Second) // TODO: do we need a delay?
+  rt.start = true // TODO: do we need to syncronize start?
 }
 
-func (s *RealtimeAnalyzer) getRecentMediaUptown(Time int64) {
+func (rt *RealtimeAnalyzer) formatInstagramData(media instagram.Media) string {
+  var comment string
+
+  comment = floatToString(media.Location.Latitude) + ", " + 
+            floatToString(media.Location.Longitude) + ", " +
+            media.User.Username + ": "
+
+  if media.Caption != nil {
+    comment += "<br>" + media.Caption.Text + " " + 
+               "<br><a href=\"" + media.Link + "\">" + media.Link + "</a>"
+  }
+
+  comment +=  ", " + "1"
+
+  return comment
+}
+
+func (rt *RealtimeAnalyzer) getRecentMediaUptown(Time int64) {
   opt := &instagram.Parameters {
     Lat: 40.790716,
     Lng: -73.955841,
     Distance: 5000,
   }
 
-  s.mu.Lock()
-  media, _, err := s.instagramClient.Media.Search(opt)
-  s.mu.Unlock()
+  rt.mu.Lock() // TODO: we need the lock?
+  media, _, err := rt.instagramClient.Media.Search(opt)
+  rt.mu.Unlock()
 
   if err != nil {
       log.Println("Error: " + err.Error())
@@ -402,28 +448,21 @@ func (s *RealtimeAnalyzer) getRecentMediaUptown(Time int64) {
   }
 
   if len(media) > 0 {
-    var str string
-
-    str = media[0].User.Username
-    if media[0].Caption != nil {
-      str = str + ": " + "<br>" + media[0].Caption.Text + " " + "<br><a href=\"" + media[0].Link + "\">" + media[0].Link + "</a>"
-    }
-
-    str = floatToString(media[0].Location.Latitude) + ", " + floatToString(media[0].Location.Longitude) + ", " + str + ", 1"
-    s.channel <- str
+    comment := rt.formatInstagramData(media[0])
+    rt.channel <- comment
   }
 }
 
-func (s *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
+func (rt *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
   opt := &instagram.Parameters {
     Lat: 40.711446,
     Lng: -74.007968,
     Distance: 5000,
   }
 
-  s.mu.Lock()
-  media, _, err := s.instagramClient.Media.Search(opt)
-  s.mu.Unlock()
+  rt.mu.Lock()
+  media, _, err := rt.instagramClient.Media.Search(opt)
+  rt.mu.Unlock()
 
   if err != nil {
       log.Println("Error: " + err.Error())
@@ -431,24 +470,30 @@ func (s *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
   }
 
   if len(media) > 0 {
-    var str string
-
-    str = media[0].User.Username
-    if media[0].Caption != nil {
-      str = str + ": " + "<br>" + media[0].Caption.Text + " " + "<br><a href=\"" + media[0].Link + "\">" + media[0].Link + "</a>"
-    }
-
-    str = floatToString(media[0].Location.Latitude) + ", " + floatToString(media[0].Location.Longitude) + ", " + str + ", 1"
-    s.channel <- str
+    comment := rt.formatInstagramData(media[0])
+    rt.channel <- comment
   }
 }
 
-func (s *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Request) {
+func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Request) {
+  // To create a subscription, you make a POST request to the subscriptions endpoint.
+  // The received GET request is the response of the subscription
   if r.Method == "GET" && r.FormValue("hub.mode") == "subscribe" && r.FormValue("hub.challenge") != "" {
     r.ParseForm()
-    hub_challenge := r.FormValue("hub.challenge")
-    fmt.Fprintf(w, hub_challenge)
-  } else {
+    fmt.Fprintf(w, r.FormValue("hub.challenge"))
+  // When someone posts a new photo and it triggers an update of one of your subscriptions, 
+  // instagram makes a POST request to the callback URL that you defined in the subscription. 
+  // The post body contains a raw text JSON body with update objects:
+  //  {
+  //      "subscription_id": "1",
+  //      "object": "user",
+  //      "object_id": "1234",
+  //      "changed_aspect": "media",
+  //      "time": 1297286541
+  //  },
+  } else if r.Method == "POST" {
+    defer r.Body.Close() // TODO: is ok?
+
     var m = []instagram.RealtimeResponse{}
     err := json.NewDecoder(r.Body).Decode(&m)
     if err != nil {
@@ -456,11 +501,11 @@ func (s *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Reque
         return
     }
   
-    if s.start == true && len(m) > 0 {
-      if s.subscriptionIdUptown == m[0].ObjectID {
-        go s.getRecentMediaUptown(m[0].Time)
-      } else if s.subscriptionIdDowntown == m[0].ObjectID {
-        go s.getRecentMediaDowntown(m[0].Time)
+    if rt.start == true && len(m) > 0 {
+      if rt.subscriptionIdUptown == m[0].ObjectID {
+        go rt.getRecentMediaUptown(m[0].Time)
+      } else if rt.subscriptionIdDowntown == m[0].ObjectID {
+        go rt.getRecentMediaDowntown(m[0].Time)
       } else {
         fmt.Println(m[0].ObjectID)
         fmt.Println(m[0].SubscriptionID)
@@ -469,8 +514,9 @@ func (s *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Reque
     }
 
     w.WriteHeader(200)
-    w.Write([]byte("Thanks\n"))
+    w.Write([]byte("Thanks\n")) // TODO: is ok?
   }
+  // TODO: do we need to reply in the else case?
 }
 
 func main() {
@@ -482,7 +528,8 @@ func main() {
     log.Println(err)
     os.Exit(1)
   }
-  // replace the IP in the HTML file
+
+  // replace the IP Address with the HTML file
   err = changeIPAddress("home_websocket.html", config.IPAddress + ":" + config.Port)
   if err != nil {
     log.Println(err)
@@ -496,7 +543,7 @@ func main() {
 
   go s.InstagramStream(config)
   //go s.generateGeoData()
-  go s.twitterStream(config.TwitterConfig)
+  go s.twitterStream(config)
   go s.broadcastData()
 
   http.HandleFunc("/instagram", func(w http.ResponseWriter, r *http.Request) {
