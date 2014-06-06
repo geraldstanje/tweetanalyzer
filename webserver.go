@@ -111,10 +111,10 @@ func changeIPAddress(filename string, newStr string) error {
 // handler for the main page
 func HomeHandler(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-type", "text/html")
-	webpage, err := ioutil.ReadFile("home_websocket.html")
+	webpage, err := ioutil.ReadFile("home.html")
 
 	if err != nil {
-		http.Error(response, fmt.Sprintf("home_websocket.html file error %v", err), 500)
+		http.Error(response, fmt.Sprintf("home.html file error %v", err), 500)
 	}
 
 	fmt.Fprint(response, string(webpage))
@@ -546,7 +546,7 @@ func main() {
 	}
 
 	// replace the IP Address with the HTML file
-	err = changeIPAddress("home_websocket.html", config.IPAddress+":"+config.Port)
+	err = changeIPAddress("home.html", config.IPAddress+":"+config.Port)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

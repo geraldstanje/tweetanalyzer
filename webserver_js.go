@@ -15,11 +15,11 @@ import(
 )
 
 // handler for the main page
-func HomeHandler(response http.ResponseWriter, request *http.Request){
+func HomeHandler(response http.ResponseWriter, request *http.Request) {
   response.Header().Set("Content-type", "text/html")
-  webpage, err := ioutil.ReadFile("home.html")
+  webpage, err := ioutil.ReadFile("home_js.html")
   if err != nil { 
-    http.Error(response, fmt.Sprintf("home.html file error %v", err), 500)
+    http.Error(response, fmt.Sprintf("home_js.html file error %v", err), 500)
   }
   fmt.Fprint(response, string(webpage));
 }
@@ -176,10 +176,10 @@ func (s *Slice) twitterStream() {
   var wait = 1
   var maxWait = 600 // Seconds
 
-  client := twitterstream.NewClient("xxx", 
-                                    "xxx", 
-                                    "xxx", 
-                                    "xxx")
+  client := twitterstream.NewClient("l76vc0wSlg9UBGx6Pt2KuEdkY", 
+                                    "0SUxkYDe4opkkoz1Hj72DNYRObQcmiAMHHE5VUjJRmwDk55RUs", 
+                                    "957672396-4rvqhNjhM9nncGDyxcjYXnoUvSYrenKFGMtTDMBZ", 
+                                    "Xp5c2fojBo2DlEm0ScXwtW9WbF2dYznvstEG75CrZs9fQ")
   client.Timeout = 0
 
   for {
