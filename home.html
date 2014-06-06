@@ -17,37 +17,159 @@
     <script>
 
 var map;
-var URL="http://91.115.6.148:8080/getlatlongtext";
-
-$(document).ready(function () {
-  setInterval("delayedPost()", 50);
-});
+var wsURL = "ws://194.96.73.183:8080/sock";
 
 function initialize() {
-  var NY = new google.maps.LatLng(40.760837, -73.981847); // (40.784148,-73.966140);
+  var NY = new google.maps.LatLng(40.760837, -73.981847);
   var mapOptions = {
     zoom: 13,
     center: NY//,
     //mapTypeId: google.maps.MapTypeId.TERRAIN
   }
   map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
- 
-  //makePolygon();
+  
+  var sock = new ReconnectingWebSocket(wsURL);
 }
 
-function delayedPost() {
-  $.post(URL, "", function(data, status) {
-    if(data.length > 0) {
+// reference: https://github.com/joewalnes/reconnecting-websocket/
+function ReconnectingWebSocket(url, protocols) {
+    protocols = protocols || [];
+
+    // These can be altered by calling code.
+    this.debug = false;
+    this.reconnectInterval = 1000;
+    this.timeoutInterval = 2000;
+
+    var self = this;
+    var ws;
+    var forcedClose = false;
+    var timedOut = false;
+    
+    this.url = url;
+    this.protocols = protocols;
+    this.readyState = WebSocket.CONNECTING;
+    this.URL = url; // Public API
+
+    this.onopen = function(event) {
+    };
+
+    this.onclose = function(event) {
+    };
+
+    this.onconnecting = function(event) {
+    };
+
+    this.onmessage = function(event) {
+      receiveData(event.data);
+    };
+
+    this.onerror = function(event) {
+    };
+
+    function connect(reconnectAttempt) {
+        ws = new WebSocket(url, protocols);
+        
+        self.onconnecting();
+        if (self.debug || ReconnectingWebSocket.debugAll) {
+            console.debug('ReconnectingWebSocket', 'attempt-connect', url);
+        }
+        
+        var localWs = ws;
+        var timeout = setTimeout(function() {
+            if (self.debug || ReconnectingWebSocket.debugAll) {
+                console.debug('ReconnectingWebSocket', 'connection-timeout', url);
+            }
+            timedOut = true;
+            localWs.close();
+            timedOut = false;
+        }, self.timeoutInterval);
+        
+        ws.onopen = function(event) {
+            clearTimeout(timeout);
+            if (self.debug || ReconnectingWebSocket.debugAll) {
+                console.debug('ReconnectingWebSocket', 'onopen', url);
+            }
+            self.readyState = WebSocket.OPEN;
+            reconnectAttempt = false;
+            self.onopen(event);
+        };
+        
+        ws.onclose = function(event) {
+            clearTimeout(timeout);
+            ws = null;
+            if (forcedClose) {
+                self.readyState = WebSocket.CLOSED;
+                self.onclose(event);
+            } else {
+                self.readyState = WebSocket.CONNECTING;
+                self.onconnecting();
+                if (!reconnectAttempt && !timedOut) {
+                    if (self.debug || ReconnectingWebSocket.debugAll) {
+                        console.debug('ReconnectingWebSocket', 'onclose', url);
+                    }
+                    self.onclose(event);
+                }
+                setTimeout(function() {
+                    connect(true);
+                }, self.reconnectInterval);
+            }
+        };
+        ws.onmessage = function(event) {
+            if (self.debug || ReconnectingWebSocket.debugAll) {
+                console.debug('ReconnectingWebSocket', 'onmessage', url, event.data);
+            }
+          self.onmessage(event);
+        };
+        ws.onerror = function(event) {
+            if (self.debug || ReconnectingWebSocket.debugAll) {
+                console.debug('ReconnectingWebSocket', 'onerror', url, event);
+            }
+            self.onerror(event);
+        };
+    }
+    connect(url);
+
+    this.send = function(data) {
+        if (ws) {
+            if (self.debug || ReconnectingWebSocket.debugAll) {
+                console.debug('ReconnectingWebSocket', 'send', url, data);
+            }
+            return ws.send(data);
+        } else {
+            throw 'INVALID_STATE_ERR : Pausing to reconnect websocket';
+        }
+    };
+
+    this.close = function() {
+        forcedClose = true;
+        if (ws) {
+            ws.close();
+        }
+    };
+
+    /**
+     * Additional public API method to refresh the connection if still open (close, re-open).
+     * For example, if the app suspects bad data / missed heart beats, it can try to refresh.
+     */
+    this.refresh = function() {
+        if (ws) {
+            ws.close();
+        }
+    };
+}
+
+/**
+ * Setting this to true is the equivalent of setting all instances of ReconnectingWebSocket.debug to true.
+ */
+ReconnectingWebSocket.debugAll = false;
+
+function receiveData(data) {
+  if(data.length > 0) {
       var string_split = data.split(",");
       var myLatlng = new google.maps.LatLng(parseFloat(string_split[0]), parseFloat(string_split[1]));
 
-      //drawSimppleMarker(myLatlng, string_split[2]);
-
-      //drawCustomMarker(myLatlng, string_split[2]);
-
-      drawCircle(myLatlng, string_split[2]);
+      drawCircle(myLatlng, string_split[2], string_split[3]);
     }
-  });
 }
 
 function drawSimppleMarker(location, text) {
@@ -123,15 +245,24 @@ function HandleInfoWindow(latLng, content) {
   infoWindow.open(map);
 }
 
-function drawCircle(location, text) {
+function drawCircle(location, text, colorIndex) {
+  var color = "";
+
+  if(colorIndex == 0) {
+    color = "#FF0000";
+  }
+  else if(colorIndex == 1) {
+    color = "#0000FF";
+  }
+
   // Add a Circle overlay to the map.
   var circle = new google.maps.Circle({
     center: location,
-    radius: 100,
-    strokeColor: "#FF0000",
+    radius: 40,//50,//100,
+    strokeColor: color,
     strokeOpacity: 0.8,
     strokeWeight: 2,
-    fillColor: "#FF0000",
+    fillColor: color,
     fillOpacity: 0.35,
     map: map,
     title: 'Some location'
