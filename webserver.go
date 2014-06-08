@@ -552,22 +552,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	s := new(RealtimeAnalyzer)
-	s.channel = make(chan string, 1000) // buffered channel with 1000 entries
-	s.ActiveClients = make(map[string]Client)
-	s.start = false
+	rt := new(RealtimeAnalyzer)
+	rt.channel = make(chan string, 1000) // buffered channel with 1000 entries
+	rt.ActiveClients = make(map[string]Client)
+	rt.start = false
 
-	go s.InstagramStream(config)
+	go rt.InstagramStream(config)
 	//go s.generateGeoData()
-	go s.twitterStream(config)
-	go s.broadcastData()
+	go rt.twitterStream(config)
+	go rt.broadcastData()
 
 	http.HandleFunc("/instagram", func(w http.ResponseWriter, r *http.Request) {
-		s.instagramHandler(w, r)
+		rt.instagramHandler(w, r)
 	})
 	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
 	http.Handle("/", http.HandlerFunc(HomeHandler))
-	http.Handle("/sock", websocket.Handler(s.WebSocketServer))
+	http.Handle("/sock", websocket.Handler(rt.WebSocketServer))
 
 	err = http.ListenAndServe(":"+config.Port, nil)
 

@@ -17,7 +17,7 @@
     <script>
 
 var map;
-var wsURL = "ws://194.96.73.183:8080/sock";
+var wsURL = "ws://212.197.170.242:8080/sock";
 
 function initialize() {
   var NY = new google.maps.LatLng(40.760837, -73.981847);
@@ -253,6 +253,9 @@ function drawCircle(location, text, colorIndex) {
   }
   else if(colorIndex == 1) {
     color = "#0000FF";
+  }
+  else if(colorIndex == 2) {
+    color = "#00FF00";
   }
 
   // Add a Circle overlay to the map.
