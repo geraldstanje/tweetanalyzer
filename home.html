@@ -17,7 +17,7 @@
     <script>
 
 var map;
-var wsURL = "ws://212.197.170.242:8080/sock";
+var wsURL = "ws://62.47.31.9:8080/sock";
 
 function initialize() {
   var NY = new google.maps.LatLng(40.760837, -73.981847);
@@ -166,9 +166,9 @@ ReconnectingWebSocket.debugAll = false;
 function receiveData(data) {
   if(data.length > 0) {
       var string_split = data.split(",");
-      var myLatlng = new google.maps.LatLng(parseFloat(string_split[0]), parseFloat(string_split[1]));
+      var myLatlng = new google.maps.LatLng(parseFloat(string_split[1]), parseFloat(string_split[2]));
 
-      drawCircle(myLatlng, string_split[2], string_split[3]);
+      drawCircle(myLatlng, string_split[3], string_split[0]);
     }
 }
 

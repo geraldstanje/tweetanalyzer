@@ -266,6 +266,7 @@ func (rt *RealtimeAnalyzer) broadcastData() {
 
 func (rt *RealtimeAnalyzer) formatTwitterData(tweet *twitterstream.Tweet) (string, error) {
 	var comment string
+	var link string
 
 	if tweet.Coordinates == nil {
 		return "", fmt.Errorf("Tweet without geolocation set")
@@ -275,25 +276,25 @@ func (rt *RealtimeAnalyzer) formatTwitterData(tweet *twitterstream.Tweet) (strin
 	reg2 := regexp.MustCompile(`pic.twitter.com/[a-zA-Z0-9]{0,10}`)
 
 	comment = tweet.Text
+	linkReg1 := reg1.FindAllString(comment, -1)
+	linkReg2 := reg2.FindAllString(comment, -1)
 
-	link1 := reg1.FindAllString(comment, -1)
-	if link1 != nil {
-		comment = strings.Replace(comment, link1[0], "<br><a href=\""+link1[0]+"\">"+link1[0]+"</a>", -1)
-	}
-
-	if link1 == nil {
-		link2 := reg2.FindAllString(comment, -1)
-
-		if link2 != nil {
-			comment = strings.Replace(comment, link2[0], "<br><a href=\""+link2[0]+"\">"+link2[0]+"</a>", -1)
+	if linkReg1 != nil {
+		comment = strings.Replace(comment, linkReg1[0], "", -1)
+		link = "<a href=\"" + linkReg1[0] + "\">" + linkReg1[0] + "</a>"
+	} else {
+		if linkReg2 != nil {
+			comment = strings.Replace(comment, linkReg2[0], "", -1)
+			link = "<a href=\"" + linkReg2[0] + "\">" + linkReg2[0] + "</a>"
 		}
 	}
 
-	comment = floatToString(float64(tweet.Coordinates.Lat)) + ", " +
+	comment = "0" + ", " +
+		floatToString(float64(tweet.Coordinates.Lat)) + ", " +
 		floatToString(float64(tweet.Coordinates.Long)) + ", " +
 		tweet.User.ScreenName + ": " +
-		"<br>" + comment + ", " +
-		"0"
+		"<br>" + comment +
+		"<br>" + link
 	return comment, nil
 }
 
@@ -412,7 +413,8 @@ func (rt *RealtimeAnalyzer) InstagramStream(conf Config) {
 func (rt *RealtimeAnalyzer) formatInstagramData(media instagram.Media) string {
 	var comment string
 
-	comment = floatToString(media.Location.Latitude) + ", " +
+	comment = "1" + ", " +
+		floatToString(media.Location.Latitude) + ", " +
 		floatToString(media.Location.Longitude) + ", " +
 		media.User.Username + ": "
 
@@ -420,8 +422,6 @@ func (rt *RealtimeAnalyzer) formatInstagramData(media instagram.Media) string {
 		comment += "<br>" + media.Caption.Text + " " +
 			"<br><a href=\"" + media.Link + "\">" + media.Link + "</a>"
 	}
-
-	comment += ", " + "1"
 
 	return comment
 }
@@ -438,7 +438,7 @@ func (rt *RealtimeAnalyzer) getRecentMediaUptown(Time int64) {
 	rt.Unlock()
 
 	if err != nil {
-		log.Println("Error: " + err.Error())
+		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
 		return
 	}
 
@@ -460,7 +460,7 @@ func (rt *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
 	rt.Unlock()
 
 	if err != nil {
-		log.Println("Error: " + err.Error())
+		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
 		return
 	}
 
@@ -482,7 +482,7 @@ func (rt *RealtimeAnalyzer) getRecentMediaQueens(Time int64) {
 	rt.Unlock()
 
 	if err != nil {
-		log.Println("Error: " + err.Error())
+		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
 		return
 	}
 
