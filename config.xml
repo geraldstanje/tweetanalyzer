@@ -1,18 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config>
-  <ip>212.197.171.151</ip>
+  <ip>193.80.92.176</ip>
   <port>8080</port>
   <twitter>
-    <consumerKey>XXX</consumerKey>
-    <consumerSecret>XXX</consumerSecret>
-    <accessToken>XXX</accessToken>
-    <accessSecret>XXX</accessSecret>
+    <consumerKey>l76vc0wSlg9UBGx6Pt2KuEdkY</consumerKey>
+    <consumerSecret>0SUxkYDe4opkkoz1Hj72DNYRObQcmiAMHHE5VUjJRmwDk55RUs</consumerSecret>
+    <accessToken>957672396-4rvqhNjhM9nncGDyxcjYXnoUvSYrenKFGMtTDMBZ</accessToken>
+    <accessSecret>Xp5c2fojBo2DlEm0ScXwtW9WbF2dYznvstEG75CrZs9fQ</accessSecret>
+    <!-- Bounding box for New York City -->
+    <location lat="40" long="-74"/>
+    <location lat="41" long="-73"/>
   </twitter>
   <instagram>
-    <clientID>XXX</clientID>
-    <clientSecret>XXX</clientSecret>
+    <!-- change ip here: http://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis -->
+    <clientID>f2722885978d466c8e67d89396eb3fb4</clientID>
+    <clientSecret>6b89751ee5df43728f5e7d7d2ff05de4</clientSecret>
     <!-- get access token: https://instagram.com/oauth/authorize/?client_id=XXX&redirect_uri=XXX&response_type=token -->
-    <accessToken>XXX</accessToken> 
+    <accessToken>1365365111.f272288.d81c81208a88499ca9d0850539804a2e</accessToken> 
     <callbackURL>/instagram</callbackURL>
+    <!-- Manhattan uptown area -->
+    <location lat="40.799555" long="-73.973693"/>
+    <!-- Manhattan downtown area -->
+    <location lat="40.727058" long="-74.036807"/>
+    <!-- Brooklyn area -->
+    <location lat="40.669817" long="-73.975837"/>
+    <!-- Queens area -->
+    <location lat="40.746071" long="-73.941848"/>
+    <!-- Flushing area -->
+    <location lat="40.781227" long="-73.859195"/>
   </instagram>
 </config>

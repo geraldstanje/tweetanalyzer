@@ -17,7 +17,8 @@
     <script>
 
 var map;
-var wsURL = "ws://62.47.31.9:8080/sock";
+var wsURL = "ws://193.80.92.176:8080/sock";
+var circleHash = {};
 
 function initialize() {
   var NY = new google.maps.LatLng(40.760837, -73.981847);
@@ -271,6 +272,14 @@ function drawCircle(location, text, colorIndex) {
     title: 'Some location'
   });
 
+  var unix = new Date().getTime();
+  var key = location.toString() + unix;
+  circleHash[key] = circle;
+  
+  google.maps.event.addListener(circle, 'rightclick', function() {
+    removeCircle(key);
+  });
+
   google.maps.event.addListener(circle, 'click', function() {
     HandleInfoWindow(location, text)
   });
@@ -303,6 +312,14 @@ function makePolygon() {
   });
  
   polygon.setMap(map); 
+}
+
+function removeCircle(location) {
+  console.debug('removeCircle called')
+  
+  circleHash[location].setMap(null);
+
+  delete circleHash[location];
 }
 
 google.maps.event.addDomListener(window, 'load', initialize);

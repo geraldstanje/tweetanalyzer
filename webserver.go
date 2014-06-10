@@ -34,14 +34,19 @@ type Client struct {
 
 type RealtimeAnalyzer struct {
 	sync.Mutex
+  config                 Config
 	start                  bool
-	ActiveClients          map[string]Client
+	activeClients          map[string]Client
 	instagramClient        *instagram.Client
 	subscriptionIdUptown   string
 	subscriptionIdDowntown string
+	subscriptionIdBrooklyn string
 	subscriptionIdQueens   string
+	subscriptionIdFlushing string
 	channel                chan string
 	points                 [][]float64
+	dict                   map[string]bool
+	mu                     sync.Mutex
 }
 
 type Config struct {
@@ -52,41 +57,47 @@ type Config struct {
 }
 
 type TwitterConfig struct {
-	ConsumerKey    string `xml:"consumerKey"`
-	ConsumerSecret string `xml:"consumerSecret"`
-	AccessToken    string `xml:"accessToken"`
-	AccessSecret   string `xml:"accessSecret"`
+	ConsumerKey    string        `xml:"consumerKey"`
+	ConsumerSecret string        `xml:"consumerSecret"`
+	AccessToken    string        `xml:"accessToken"`
+	AccessSecret   string        `xml:"accessSecret"`
+	Location       []GeoLocation `xml:"location"`
 }
 
 type InstagramConfig struct {
-	ClientID     string `xml:"clientID"`
-	ClientSecret string `xml:"clientSecret"`
-	AccessToken  string `xml:"accessToken"`
-	CallbackURL  string `xml:"callbackURL"`
+	ClientID     string        `xml:"clientID"`
+	ClientSecret string        `xml:"clientSecret"`
+	AccessToken  string        `xml:"accessToken"`
+	CallbackURL  string        `xml:"callbackURL"`
+	Location     []GeoLocation `xml:"location"`
+}
+
+type GeoLocation struct {
+	Lat  float64 `xml:"lat,attr"`
+	Long float64 `xml:"long,attr"`
 }
 
 func parseXML(data []byte) (Config, error) {
 	config := Config{}
 	err := xml.Unmarshal(data, &config)
-
-	return config, err
+  return config, err
 }
 
-func readConfig(filename string) (Config, error) {
+func (rt *RealtimeAnalyzer) readConfig(filename string) (error) {
 	xmlFile, err := os.Open(filename)
 	if err != nil {
-		return Config{}, err
+		return err
 	}
 	defer xmlFile.Close()
 
 	reader := bufio.NewReader(xmlFile)
-	contents, _ := ioutil.ReadAll(reader)
-	config, _ := parseXML(contents)
+	contents, err := ioutil.ReadAll(reader)
+	rt.config, err = parseXML(contents)
 
-	return config, nil
+	return err
 }
 
-func changeIPAddress(filename string, newStr string) error {
+func (rt *RealtimeAnalyzer) changeIPAddress(filename string, newStr string) error {
 	if len(filename) == 0 {
 		return fmt.Errorf("Error: invalid len of file")
 	}
@@ -123,6 +134,11 @@ func HomeHandler(response http.ResponseWriter, request *http.Request) {
 // to convert a float number to a string
 func floatToString(input_num float64) string {
 	return strconv.FormatFloat(input_num, 'f', 6, 64)
+}
+
+func stringToFloat(str string) float64 {
+	floatVal, _ := strconv.ParseFloat(str, 64)
+	return floatVal
 }
 
 func random(min, max float64) float64 {
@@ -211,10 +227,10 @@ func (rt *RealtimeAnalyzer) generateGeoData() {
 	for {
 		longitude, latitude := rt.generateRandGeoLoc()
 
-		str := floatToString(longitude) + ", " +
+		str := "0" + ", " +
+			floatToString(longitude) + ", " +
 			floatToString(latitude) + ", " +
-			"tweet" + ", " +
-			"0"
+			"tweet"
 
 		rt.channel <- str
 
@@ -238,19 +254,19 @@ func (rt *RealtimeAnalyzer) broadcastData() {
 	for {
 		select {
 		case str := <-rt.channel:
-			for ip, _ := range rt.ActiveClients {
-				if err = Message.Send(rt.ActiveClients[ip].websocket, str); err != nil {
+			for ip, _ := range rt.activeClients {
+				if err = Message.Send(rt.activeClients[ip].websocket, str); err != nil {
 					// we could not send the message to a peer
 					log.Println("Could not send message to ", ip, err.Error())
 
 					// work-around: https://code.google.com/p/go/issues/detail?id=3117
-					var tmp = rt.ActiveClients[ip]
+					var tmp = rt.activeClients[ip]
 					tmp.errorCount += 1
-					rt.ActiveClients[ip] = tmp
+					rt.activeClients[ip] = tmp
 
-					if rt.ActiveClients[ip].errorCount >= errorCounterMax {
+					if rt.activeClients[ip].errorCount >= errorCounterMax {
 						log.Println("Client disconnected:", ip)
-						delete(rt.ActiveClients, ip)
+						delete(rt.activeClients, ip)
 					}
 				}
 			}
@@ -313,16 +329,17 @@ func (rt *RealtimeAnalyzer) decode(conn *twitterstream.Connection) {
 	}
 }
 
-func (rt *RealtimeAnalyzer) twitterStream(config Config) {
+func (rt *RealtimeAnalyzer) twitterStream() {
 	var wait = 1
 	var maxWait = 600 // Seconds
 
-	client := twitterstream.NewClient(config.TwitterConfig.ConsumerKey, config.TwitterConfig.ConsumerSecret, config.TwitterConfig.AccessToken, config.TwitterConfig.AccessSecret)
+	client := twitterstream.NewClient(rt.config.TwitterConfig.ConsumerKey, rt.config.TwitterConfig.ConsumerSecret, rt.config.TwitterConfig.AccessToken, rt.config.TwitterConfig.AccessSecret)
 	client.Timeout = 0
 
 	for {
 		// latitude/longitude of New York City
-		conn, err := client.Locations(twitterstream.Point{40, -74}, twitterstream.Point{41, -73})
+		conn, err := client.Locations(twitterstream.Point{twitterstream.Latitude(rt.config.TwitterConfig.Location[0].Lat), twitterstream.Longitude(rt.config.TwitterConfig.Location[0].Long)},
+			twitterstream.Point{twitterstream.Latitude(rt.config.TwitterConfig.Location[1].Lat), twitterstream.Longitude(rt.config.TwitterConfig.Location[1].Long)})
 
 		if err != nil {
 			wait = wait << 1 // exponential backoff
@@ -352,7 +369,7 @@ func (rt *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
 
 	client := ws.Request().RemoteAddr
 	log.Println("New client connected:", client)
-	rt.ActiveClients[client] = Client{0, ws, client}
+	rt.activeClients[client] = Client{0, ws, client}
 
 	// for loop so the websocket stays open otherwise it'll close
 	for {
@@ -361,14 +378,15 @@ func (rt *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
 }
 
 // http://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis
-func (rt *RealtimeAnalyzer) InstagramStream(conf Config) {
+func (rt *RealtimeAnalyzer) InstagramStream() {
 	time.Sleep(2 * time.Second)
 
 	rt.instagramClient = instagram.NewClient(nil)
-	rt.instagramClient.ClientID = conf.InstagramConfig.ClientID
-	rt.instagramClient.ClientSecret = conf.InstagramConfig.ClientSecret
-	rt.instagramClient.AccessToken = conf.InstagramConfig.AccessToken
+	rt.instagramClient.ClientID = rt.config.InstagramConfig.ClientID
+	rt.instagramClient.ClientSecret = rt.config.InstagramConfig.ClientSecret
+	rt.instagramClient.AccessToken = rt.config.InstagramConfig.AccessToken
 
+	// delete all existing subscriptions
 	res, err := rt.instagramClient.Realtime.DeleteAllSubscriptions()
 	if err != nil {
 		fmt.Println("client.Realtime.DeleteAllSubscriptions returned error: ", err)
@@ -377,9 +395,8 @@ func (rt *RealtimeAnalyzer) InstagramStream(conf Config) {
 
 	time.Sleep(1 * time.Second)
 
-	// check radius with: http://www.freemaptools.com/radius-around-point.htm
 	// subscribe to Manhattan uptown area
-	res, err = rt.instagramClient.Realtime.SubscribeToGeography("40.790716", "-73.955841", "5000", "http://"+conf.IPAddress+":"+conf.Port+conf.InstagramConfig.CallbackURL)
+	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[0].Lat), floatToString(rt.config.InstagramConfig.Location[0].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
 	if err != nil {
 		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
 		return
@@ -389,7 +406,7 @@ func (rt *RealtimeAnalyzer) InstagramStream(conf Config) {
 	time.Sleep(1 * time.Second)
 
 	// subscribe to Manhattan downtown area
-	res, err = rt.instagramClient.Realtime.SubscribeToGeography("40.711446", "-74.007968", "5000", "http://"+conf.IPAddress+":"+conf.Port+conf.InstagramConfig.CallbackURL)
+	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[1].Lat), floatToString(rt.config.InstagramConfig.Location[1].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
 	if err != nil {
 		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
 		return
@@ -398,13 +415,33 @@ func (rt *RealtimeAnalyzer) InstagramStream(conf Config) {
 
 	time.Sleep(1 * time.Second)
 
+	// subscribe to Brooklyn area
+	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[2].Lat), floatToString(rt.config.InstagramConfig.Location[2].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
+	if err != nil {
+		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
+		return
+	}
+	rt.subscriptionIdBrooklyn = res.ObjectID
+
+	time.Sleep(1 * time.Second)
+
 	// subscribe to Queens area
-	res, err = rt.instagramClient.Realtime.SubscribeToGeography("40.716413", "-73.892410", "5000", "http://"+conf.IPAddress+":"+conf.Port+conf.InstagramConfig.CallbackURL)
+	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[3].Lat), floatToString(rt.config.InstagramConfig.Location[3].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
 	if err != nil {
 		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
 		return
 	}
 	rt.subscriptionIdQueens = res.ObjectID
+
+	time.Sleep(1 * time.Second)
+
+	// subscribe to Flushing area
+	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[4].Lat), floatToString(rt.config.InstagramConfig.Location[4].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
+	if err != nil {
+		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
+		return
+	}
+	rt.subscriptionIdFlushing = res.ObjectID
 
 	time.Sleep(2 * time.Second)
 	rt.start = true
@@ -426,10 +463,22 @@ func (rt *RealtimeAnalyzer) formatInstagramData(media instagram.Media) string {
 	return comment
 }
 
+func (rt *RealtimeAnalyzer) isDuplicate(mediaId string) bool {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+
+	if _, ok := rt.dict[mediaId]; ok {
+		return true
+	} else {
+		rt.dict[mediaId] = true
+		return false
+	}
+}
+
 func (rt *RealtimeAnalyzer) getRecentMediaUptown(Time int64) {
 	opt := &instagram.Parameters{
-		Lat:      40.790716,
-		Lng:      -73.955841,
+		Lat:      rt.config.InstagramConfig.Location[0].Lat,
+		Lng:      rt.config.InstagramConfig.Location[0].Long,
 		Distance: 5000,
 	}
 
@@ -443,6 +492,10 @@ func (rt *RealtimeAnalyzer) getRecentMediaUptown(Time int64) {
 	}
 
 	if len(media) > 0 {
+		if rt.isDuplicate(media[0].ID) == true {
+			return
+		}
+
 		comment := rt.formatInstagramData(media[0])
 		rt.channel <- comment
 	}
@@ -450,8 +503,8 @@ func (rt *RealtimeAnalyzer) getRecentMediaUptown(Time int64) {
 
 func (rt *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
 	opt := &instagram.Parameters{
-		Lat:      40.711446,
-		Lng:      -74.007968,
+		Lat:      rt.config.InstagramConfig.Location[1].Lat,
+		Lng:      rt.config.InstagramConfig.Location[1].Long,
 		Distance: 5000,
 	}
 
@@ -465,6 +518,36 @@ func (rt *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
 	}
 
 	if len(media) > 0 {
+		if rt.isDuplicate(media[0].ID) == true {
+			return
+		}
+
+		comment := rt.formatInstagramData(media[0])
+		rt.channel <- comment
+	}
+}
+
+func (rt *RealtimeAnalyzer) getRecentMediaBrooklyn(Time int64) {
+	opt := &instagram.Parameters{
+		Lat:      rt.config.InstagramConfig.Location[2].Lat,
+		Lng:      rt.config.InstagramConfig.Location[2].Long,
+		Distance: 5000,
+	}
+
+	rt.Lock()
+	media, _, err := rt.instagramClient.Media.Search(opt)
+	rt.Unlock()
+
+	if err != nil {
+		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
+		return
+	}
+
+	if len(media) > 0 {
+		if rt.isDuplicate(media[0].ID) == true {
+			return
+		}
+
 		comment := rt.formatInstagramData(media[0])
 		rt.channel <- comment
 	}
@@ -472,8 +555,8 @@ func (rt *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
 
 func (rt *RealtimeAnalyzer) getRecentMediaQueens(Time int64) {
 	opt := &instagram.Parameters{
-		Lat:      40.716413,
-		Lng:      -73.892410,
+		Lat:      rt.config.InstagramConfig.Location[3].Lat,
+		Lng:      rt.config.InstagramConfig.Location[3].Long,
 		Distance: 5000,
 	}
 
@@ -487,6 +570,36 @@ func (rt *RealtimeAnalyzer) getRecentMediaQueens(Time int64) {
 	}
 
 	if len(media) > 0 {
+		if rt.isDuplicate(media[0].ID) == true {
+			return
+		}
+
+		comment := rt.formatInstagramData(media[0])
+		rt.channel <- comment
+	}
+}
+
+func (rt *RealtimeAnalyzer) getRecentMediaFlushing(Time int64) {
+	opt := &instagram.Parameters{
+		Lat:      rt.config.InstagramConfig.Location[4].Lat,
+		Lng:      rt.config.InstagramConfig.Location[4].Long,
+		Distance: 5000,
+	}
+
+	rt.Lock()
+	media, _, err := rt.instagramClient.Media.Search(opt)
+	rt.Unlock()
+
+	if err != nil {
+		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
+		return
+	}
+
+	if len(media) > 0 {
+		if rt.isDuplicate(media[0].ID) == true {
+			return
+		}
+
 		comment := rt.formatInstagramData(media[0])
 		rt.channel <- comment
 	}
@@ -519,13 +632,16 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
 		}
 
 		if rt.start == true && len(m) > 0 {
-			//val := strconv.FormatInt(m[0].SubscriptionID, 10)
 			if rt.subscriptionIdUptown == m[0].ObjectID {
 				go rt.getRecentMediaUptown(m[0].Time)
 			} else if rt.subscriptionIdDowntown == m[0].ObjectID {
 				go rt.getRecentMediaDowntown(m[0].Time)
+			} else if rt.subscriptionIdBrooklyn == m[0].ObjectID {
+				go rt.getRecentMediaBrooklyn(m[0].Time)
 			} else if rt.subscriptionIdQueens == m[0].ObjectID {
 				go rt.getRecentMediaQueens(m[0].Time)
+			} else if rt.subscriptionIdFlushing == m[0].ObjectID {
+				go rt.getRecentMediaFlushing(m[0].Time)
 			} else {
 				fmt.Println("Error")
 			}
@@ -538,28 +654,29 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	// read configuration file
-	config, err := readConfig("config.xml")
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
-
-	// replace the IP Address with the HTML file
-	err = changeIPAddress("home.html", config.IPAddress+":"+config.Port)
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
-
 	rt := new(RealtimeAnalyzer)
+	rt.dict = make(map[string]bool)
 	rt.channel = make(chan string, 1000) // buffered channel with 1000 entries
-	rt.ActiveClients = make(map[string]Client)
+	rt.activeClients = make(map[string]Client)
 	rt.start = false
 
-	go rt.InstagramStream(config)
-	//go s.generateGeoData()
-	go rt.twitterStream(config)
+  // read configuration file
+  err := rt.readConfig("config.xml")
+  if err != nil {
+    log.Println(err)
+    os.Exit(1)
+  }
+
+  // replace the IP Address with the HTML file
+  err = rt.changeIPAddress("home.html", rt.config.IPAddress+":"+rt.config.Port)
+  if err != nil {
+    log.Println(err)
+    os.Exit(1)
+  }
+
+	go rt.InstagramStream()
+	//go rt.generateGeoData()
+	go rt.twitterStream()
 	go rt.broadcastData()
 
 	http.HandleFunc("/instagram", func(w http.ResponseWriter, r *http.Request) {
@@ -569,7 +686,7 @@ func main() {
 	http.Handle("/", http.HandlerFunc(HomeHandler))
 	http.Handle("/sock", websocket.Handler(rt.WebSocketServer))
 
-	err = http.ListenAndServe(":"+config.Port, nil)
+	err = http.ListenAndServe(":"+rt.config.Port, nil)
 
 	if err != nil {
 		log.Println(err)
