@@ -3,20 +3,20 @@
   <ip>193.80.92.176</ip>
   <port>8080</port>
   <twitter>
-    <consumerKey>l76vc0wSlg9UBGx6Pt2KuEdkY</consumerKey>
-    <consumerSecret>0SUxkYDe4opkkoz1Hj72DNYRObQcmiAMHHE5VUjJRmwDk55RUs</consumerSecret>
-    <accessToken>957672396-4rvqhNjhM9nncGDyxcjYXnoUvSYrenKFGMtTDMBZ</accessToken>
-    <accessSecret>Xp5c2fojBo2DlEm0ScXwtW9WbF2dYznvstEG75CrZs9fQ</accessSecret>
+    <consumerKey>xxx</consumerKey>
+    <consumerSecret>xxx</consumerSecret>
+    <accessToken>xxx</accessToken>
+    <accessSecret>xxx</accessSecret>
     <!-- Bounding box for New York City -->
     <location lat="40" long="-74"/>
     <location lat="41" long="-73"/>
   </twitter>
   <instagram>
     <!-- change ip here: http://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis -->
-    <clientID>f2722885978d466c8e67d89396eb3fb4</clientID>
-    <clientSecret>6b89751ee5df43728f5e7d7d2ff05de4</clientSecret>
+    <clientID>xxx</clientID>
+    <clientSecret>xxx</clientSecret>
     <!-- get access token: https://instagram.com/oauth/authorize/?client_id=XXX&redirect_uri=XXX&response_type=token -->
-    <accessToken>1365365111.f272288.d81c81208a88499ca9d0850539804a2e</accessToken> 
+    <accessToken>xxx</accessToken> 
     <callbackURL>/instagram</callbackURL>
     <!-- Manhattan uptown area -->
     <location lat="40.799555" long="-73.973693"/>
