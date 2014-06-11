@@ -33,16 +33,16 @@ type Client struct {
 }
 
 type RealtimeAnalyzer struct {
-	sync.Mutex
 	config          Config
 	start           bool
 	activeClients   map[string]Client
 	instagramClient *instagram.Client
-	subscriptionId  []int64
+	subscriptionId  []string
 	channel         chan string
 	points          [][]float64
-	dict            map[string]bool
-	mu              sync.Mutex
+	dictInstagram   map[string]bool
+	muMedia         sync.Mutex
+	muDupl          sync.Mutex
 }
 
 type Config struct {
@@ -81,11 +81,6 @@ func floatToString(input_num float64) string {
 func stringToFloat(str string) float64 {
 	floatVal, _ := strconv.ParseFloat(str, 64)
 	return floatVal
-}
-
-func stringToInt(str string) int64 {
-	intVal, _ := strconv.ParseInt(str, 10, 0)
-	return intVal
 }
 
 func random(min, max float64) float64 {
@@ -216,7 +211,7 @@ func (rt *RealtimeAnalyzer) generateRandGeoLoc() (float64, float64) {
 		latitude = random(rt.minElement(1), rt.maxElement(1))
 
 		retval := rt.isPointInPolygon(longitude, latitude)
-		if retval == true {
+		if retval {
 			break
 		}
 	}
@@ -407,7 +402,7 @@ func (rt *RealtimeAnalyzer) InstagramStream() {
 			fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
 			return
 		}
-		rt.subscriptionId = append(rt.subscriptionId, stringToInt(res.ObjectID))
+		rt.subscriptionId = append(rt.subscriptionId, res.ObjectID)
 
 		time.Sleep(1 * time.Second)
 	}
@@ -433,13 +428,13 @@ func (rt *RealtimeAnalyzer) formatInstagramData(media instagram.Media) string {
 }
 
 func (rt *RealtimeAnalyzer) isDuplicate(mediaId string) bool {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
+	rt.muDupl.Lock()
+	defer rt.muDupl.Unlock()
 
-	if _, ok := rt.dict[mediaId]; ok {
+	if _, ok := rt.dictInstagram[mediaId]; ok {
 		return true
 	} else {
-		rt.dict[mediaId] = true
+		rt.dictInstagram[mediaId] = true
 		return false
 	}
 }
@@ -451,9 +446,9 @@ func (rt *RealtimeAnalyzer) getRecentMedia(subscriptionId int64) {
 		Distance: 5000,
 	}
 
-	rt.Lock()
+	rt.muMedia.Lock()
 	media, _, err := rt.instagramClient.Media.Search(opt)
-	rt.Unlock()
+	rt.muMedia.Unlock()
 
 	if err != nil {
 		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
@@ -461,7 +456,7 @@ func (rt *RealtimeAnalyzer) getRecentMedia(subscriptionId int64) {
 	}
 
 	if len(media) > 0 {
-		if rt.isDuplicate(media[0].ID) == true {
+		if rt.isDuplicate(media[0].ID) {
 			return
 		}
 
@@ -496,11 +491,11 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		if rt.start == true && len(m) > 0 {
+		if rt.start && len(m) > 0 {
 			found := false
 
 			for i, location := range rt.subscriptionId {
-				if location == stringToInt(m[0].ObjectID) {
+				if location == m[0].ObjectID {
 					found = true
 					go rt.getRecentMedia(int64(i))
 				}
@@ -519,7 +514,7 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	rt := new(RealtimeAnalyzer)
-	rt.dict = make(map[string]bool)
+	rt.dictInstagram = make(map[string]bool)
 	rt.channel = make(chan string, 1000) // buffered channel with 1000 entries
 	rt.activeClients = make(map[string]Client)
 	rt.start = false
