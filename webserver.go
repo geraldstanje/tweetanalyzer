@@ -34,19 +34,15 @@ type Client struct {
 
 type RealtimeAnalyzer struct {
 	sync.Mutex
-  config                 Config
-	start                  bool
-	activeClients          map[string]Client
-	instagramClient        *instagram.Client
-	subscriptionIdUptown   string
-	subscriptionIdDowntown string
-	subscriptionIdBrooklyn string
-	subscriptionIdQueens   string
-	subscriptionIdFlushing string
-	channel                chan string
-	points                 [][]float64
-	dict                   map[string]bool
-	mu                     sync.Mutex
+	config          Config
+	start           bool
+	activeClients   map[string]Client
+	instagramClient *instagram.Client
+	subscriptionId  []int64
+	channel         chan string
+	points          [][]float64
+	dict            map[string]bool
+	mu              sync.Mutex
 }
 
 type Config struct {
@@ -77,13 +73,32 @@ type GeoLocation struct {
 	Long float64 `xml:"long,attr"`
 }
 
+// to convert a float number to a string
+func floatToString(input_num float64) string {
+	return strconv.FormatFloat(input_num, 'f', 6, 64)
+}
+
+func stringToFloat(str string) float64 {
+	floatVal, _ := strconv.ParseFloat(str, 64)
+	return floatVal
+}
+
+func stringToInt(str string) int64 {
+	intVal, _ := strconv.ParseInt(str, 10, 0)
+	return intVal
+}
+
+func random(min, max float64) float64 {
+	return rand.Float64()*(max-min) + min
+}
+
 func parseXML(data []byte) (Config, error) {
 	config := Config{}
 	err := xml.Unmarshal(data, &config)
-  return config, err
+	return config, err
 }
 
-func (rt *RealtimeAnalyzer) readConfig(filename string) (error) {
+func (rt *RealtimeAnalyzer) readConfig(filename string) error {
 	xmlFile, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -129,20 +144,6 @@ func HomeHandler(response http.ResponseWriter, request *http.Request) {
 	}
 
 	fmt.Fprint(response, string(webpage))
-}
-
-// to convert a float number to a string
-func floatToString(input_num float64) string {
-	return strconv.FormatFloat(input_num, 'f', 6, 64)
-}
-
-func stringToFloat(str string) float64 {
-	floatVal, _ := strconv.ParseFloat(str, 64)
-	return floatVal
-}
-
-func random(min, max float64) float64 {
-	return rand.Float64()*(max-min) + min
 }
 
 // reference: http://alienryderflex.com/polygon/
@@ -396,52 +397,20 @@ func (rt *RealtimeAnalyzer) InstagramStream() {
 	time.Sleep(1 * time.Second)
 
 	// subscribe to Manhattan uptown area
-	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[0].Lat), floatToString(rt.config.InstagramConfig.Location[0].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
-	if err != nil {
-		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
-		return
-	}
-	rt.subscriptionIdUptown = res.ObjectID
-
-	time.Sleep(1 * time.Second)
-
 	// subscribe to Manhattan downtown area
-	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[1].Lat), floatToString(rt.config.InstagramConfig.Location[1].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
-	if err != nil {
-		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
-		return
-	}
-	rt.subscriptionIdDowntown = res.ObjectID
-
-	time.Sleep(1 * time.Second)
-
 	// subscribe to Brooklyn area
-	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[2].Lat), floatToString(rt.config.InstagramConfig.Location[2].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
-	if err != nil {
-		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
-		return
-	}
-	rt.subscriptionIdBrooklyn = res.ObjectID
-
-	time.Sleep(1 * time.Second)
-
 	// subscribe to Queens area
-	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[3].Lat), floatToString(rt.config.InstagramConfig.Location[3].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
-	if err != nil {
-		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
-		return
-	}
-	rt.subscriptionIdQueens = res.ObjectID
-
-	time.Sleep(1 * time.Second)
-
 	// subscribe to Flushing area
-	res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(rt.config.InstagramConfig.Location[4].Lat), floatToString(rt.config.InstagramConfig.Location[4].Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
-	if err != nil {
-		fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
-		return
+	for _, location := range rt.config.InstagramConfig.Location {
+		res, err = rt.instagramClient.Realtime.SubscribeToGeography(floatToString(location.Lat), floatToString(location.Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
+		if err != nil {
+			fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
+			return
+		}
+		rt.subscriptionId = append(rt.subscriptionId, stringToInt(res.ObjectID))
+
+		time.Sleep(1 * time.Second)
 	}
-	rt.subscriptionIdFlushing = res.ObjectID
 
 	time.Sleep(2 * time.Second)
 	rt.start = true
@@ -475,114 +444,10 @@ func (rt *RealtimeAnalyzer) isDuplicate(mediaId string) bool {
 	}
 }
 
-func (rt *RealtimeAnalyzer) getRecentMediaUptown(Time int64) {
+func (rt *RealtimeAnalyzer) getRecentMedia(subscriptionId int64) {
 	opt := &instagram.Parameters{
-		Lat:      rt.config.InstagramConfig.Location[0].Lat,
-		Lng:      rt.config.InstagramConfig.Location[0].Long,
-		Distance: 5000,
-	}
-
-	rt.Lock()
-	media, _, err := rt.instagramClient.Media.Search(opt)
-	rt.Unlock()
-
-	if err != nil {
-		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
-		return
-	}
-
-	if len(media) > 0 {
-		if rt.isDuplicate(media[0].ID) == true {
-			return
-		}
-
-		comment := rt.formatInstagramData(media[0])
-		rt.channel <- comment
-	}
-}
-
-func (rt *RealtimeAnalyzer) getRecentMediaDowntown(Time int64) {
-	opt := &instagram.Parameters{
-		Lat:      rt.config.InstagramConfig.Location[1].Lat,
-		Lng:      rt.config.InstagramConfig.Location[1].Long,
-		Distance: 5000,
-	}
-
-	rt.Lock()
-	media, _, err := rt.instagramClient.Media.Search(opt)
-	rt.Unlock()
-
-	if err != nil {
-		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
-		return
-	}
-
-	if len(media) > 0 {
-		if rt.isDuplicate(media[0].ID) == true {
-			return
-		}
-
-		comment := rt.formatInstagramData(media[0])
-		rt.channel <- comment
-	}
-}
-
-func (rt *RealtimeAnalyzer) getRecentMediaBrooklyn(Time int64) {
-	opt := &instagram.Parameters{
-		Lat:      rt.config.InstagramConfig.Location[2].Lat,
-		Lng:      rt.config.InstagramConfig.Location[2].Long,
-		Distance: 5000,
-	}
-
-	rt.Lock()
-	media, _, err := rt.instagramClient.Media.Search(opt)
-	rt.Unlock()
-
-	if err != nil {
-		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
-		return
-	}
-
-	if len(media) > 0 {
-		if rt.isDuplicate(media[0].ID) == true {
-			return
-		}
-
-		comment := rt.formatInstagramData(media[0])
-		rt.channel <- comment
-	}
-}
-
-func (rt *RealtimeAnalyzer) getRecentMediaQueens(Time int64) {
-	opt := &instagram.Parameters{
-		Lat:      rt.config.InstagramConfig.Location[3].Lat,
-		Lng:      rt.config.InstagramConfig.Location[3].Long,
-		Distance: 5000,
-	}
-
-	rt.Lock()
-	media, _, err := rt.instagramClient.Media.Search(opt)
-	rt.Unlock()
-
-	if err != nil {
-		log.Println("Error: ", instagram.ErrorResponse(*rt.instagramClient.Response))
-		return
-	}
-
-	if len(media) > 0 {
-		if rt.isDuplicate(media[0].ID) == true {
-			return
-		}
-
-		comment := rt.formatInstagramData(media[0])
-		rt.channel <- comment
-	}
-}
-
-func (rt *RealtimeAnalyzer) getRecentMediaFlushing(Time int64) {
-	opt := &instagram.Parameters{
-		Lat:      rt.config.InstagramConfig.Location[4].Lat,
-		Lng:      rt.config.InstagramConfig.Location[4].Long,
+		Lat:      rt.config.InstagramConfig.Location[subscriptionId].Lat,
+		Lng:      rt.config.InstagramConfig.Location[subscriptionId].Long,
 		Distance: 5000,
 	}
 
@@ -632,17 +497,16 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
 		}
 
 		if rt.start == true && len(m) > 0 {
-			if rt.subscriptionIdUptown == m[0].ObjectID {
-				go rt.getRecentMediaUptown(m[0].Time)
-			} else if rt.subscriptionIdDowntown == m[0].ObjectID {
-				go rt.getRecentMediaDowntown(m[0].Time)
-			} else if rt.subscriptionIdBrooklyn == m[0].ObjectID {
-				go rt.getRecentMediaBrooklyn(m[0].Time)
-			} else if rt.subscriptionIdQueens == m[0].ObjectID {
-				go rt.getRecentMediaQueens(m[0].Time)
-			} else if rt.subscriptionIdFlushing == m[0].ObjectID {
-				go rt.getRecentMediaFlushing(m[0].Time)
-			} else {
+			found := false
+
+			for i, location := range rt.subscriptionId {
+				if location == stringToInt(m[0].ObjectID) {
+					found = true
+					go rt.getRecentMedia(int64(i))
+				}
+			}
+
+			if !found {
 				fmt.Println("Error")
 			}
 		}
@@ -660,19 +524,19 @@ func main() {
 	rt.activeClients = make(map[string]Client)
 	rt.start = false
 
-  // read configuration file
-  err := rt.readConfig("config.xml")
-  if err != nil {
-    log.Println(err)
-    os.Exit(1)
-  }
+	// read configuration file
+	err := rt.readConfig("config.xml")
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
-  // replace the IP Address with the HTML file
-  err = rt.changeIPAddress("home.html", rt.config.IPAddress+":"+rt.config.Port)
-  if err != nil {
-    log.Println(err)
-    os.Exit(1)
-  }
+	// replace the IP Address with the HTML file
+	err = rt.changeIPAddress("home.html", rt.config.IPAddress+":"+rt.config.Port)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
 	go rt.InstagramStream()
 	//go rt.generateGeoData()
