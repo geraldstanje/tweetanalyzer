@@ -376,6 +376,8 @@ func (rt *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
 
 // http://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis
 func (rt *RealtimeAnalyzer) InstagramStream() {
+	//time.Sleep(2 * time.Second)
+
 	rt.instagramClient = instagram.NewClient(nil)
 	rt.instagramClient.ClientID = rt.config.InstagramConfig.ClientID
 	rt.instagramClient.ClientSecret = rt.config.InstagramConfig.ClientSecret
@@ -424,6 +426,8 @@ func (rt *RealtimeAnalyzer) formatInstagramData(media instagram.Media) string {
 	if media.Caption != nil {
 		comment += "<br>" + media.Caption.Text + " " +
 			"<br><a href=\"" + media.Link + "\">" + media.Link + "</a>"
+	} else {
+		comment += "<br><a href=\"" + media.Link + "\">" + media.Link + "</a>"
 	}
 
 	return comment
@@ -544,7 +548,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// replace the IP Address with the HTML file
+	// replace the IP Address within the HTML file
 	err = rt.changeIPAddress("home.html", rt.config.IPAddress+":"+rt.config.Port)
 	if err != nil {
 		log.Println(err)
