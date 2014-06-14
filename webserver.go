@@ -38,11 +38,13 @@ type RealtimeAnalyzer struct {
 	activeClients   map[string]Client
 	instagramClient *instagram.Client
 	subscriptionId  []string
-	channel         chan string
+	strChan         chan string
+	errChan         chan error
 	points          [][]float64
 	dictInstagram   map[string]bool
 	muMedia         sync.Mutex
 	muDupl          sync.Mutex
+	muStart         sync.Mutex
 }
 
 type Config struct {
@@ -87,9 +89,9 @@ func random(min, max float64) float64 {
 	return rand.Float64()*(max-min) + min
 }
 
-func parseXML(data []byte) (Config, error) {
+func parseXML(reader *bufio.Reader) (Config, error) {
 	config := Config{}
-	err := xml.Unmarshal(data, &config)
+	err := xml.NewDecoder(reader).Decode(&config)
 	return config, err
 }
 
@@ -101,8 +103,7 @@ func (rt *RealtimeAnalyzer) readConfig(filename string) error {
 	defer xmlFile.Close()
 
 	reader := bufio.NewReader(xmlFile)
-	contents, err := ioutil.ReadAll(reader)
-	rt.config, err = parseXML(contents)
+	rt.config, err = parseXML(reader)
 
 	return err
 }
@@ -228,7 +229,7 @@ func (rt *RealtimeAnalyzer) generateGeoData() {
 			floatToString(latitude) + ", " +
 			"tweet"
 
-		rt.channel <- str
+		rt.strChan <- str
 
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -249,7 +250,7 @@ func (rt *RealtimeAnalyzer) broadcastData() {
 
 	for {
 		select {
-		case str := <-rt.channel:
+		case str := <-rt.strChan:
 			for ip, _ := range rt.activeClients {
 				if err = Message.Send(rt.activeClients[ip].websocket, str); err != nil {
 					// we could not send the message to a peer
@@ -316,7 +317,7 @@ func (rt *RealtimeAnalyzer) decode(conn *twitterstream.Connection) {
 			comment, err := rt.formatTwitterData(tweet)
 
 			if err == nil {
-				rt.channel <- comment
+				rt.strChan <- comment
 			}
 		} else {
 			fmt.Printf("Failed decoding tweet: %s", err)
@@ -375,8 +376,6 @@ func (rt *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
 
 // http://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis
 func (rt *RealtimeAnalyzer) InstagramStream() {
-	time.Sleep(2 * time.Second)
-
 	rt.instagramClient = instagram.NewClient(nil)
 	rt.instagramClient.ClientID = rt.config.InstagramConfig.ClientID
 	rt.instagramClient.ClientSecret = rt.config.InstagramConfig.ClientSecret
@@ -408,7 +407,10 @@ func (rt *RealtimeAnalyzer) InstagramStream() {
 	}
 
 	time.Sleep(2 * time.Second)
+
+	rt.muStart.Lock()
 	rt.start = true
+	rt.muStart.Unlock()
 }
 
 func (rt *RealtimeAnalyzer) formatInstagramData(media instagram.Media) string {
@@ -461,7 +463,7 @@ func (rt *RealtimeAnalyzer) getRecentMedia(subscriptionId int64) {
 		}
 
 		comment := rt.formatInstagramData(media[0])
-		rt.channel <- comment
+		rt.strChan <- comment
 	}
 }
 
@@ -491,6 +493,9 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
+		rt.muStart.Lock()
+		defer rt.muStart.Unlock()
+
 		if rt.start && len(m) > 0 {
 			found := false
 
@@ -510,12 +515,25 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+func (rt *RealtimeAnalyzer) startHTTPServer() {
+	http.HandleFunc("/instagram", func(w http.ResponseWriter, r *http.Request) {
+		rt.instagramHandler(w, r)
+	})
+	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
+	http.Handle("/", http.HandlerFunc(HomeHandler))
+	http.Handle("/sock", websocket.Handler(rt.WebSocketServer))
+
+	err := http.ListenAndServe(":"+rt.config.Port, nil)
+	rt.errChan <- err
+}
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	rt := new(RealtimeAnalyzer)
 	rt.dictInstagram = make(map[string]bool)
-	rt.channel = make(chan string, 1000) // buffered channel with 1000 entries
+	rt.strChan = make(chan string, 1000) // buffered channel with 1000 entries
+	rt.errChan = make(chan error)        // unbuffered channel
 	rt.activeClients = make(map[string]Client)
 	rt.start = false
 
@@ -533,19 +551,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	go rt.startHTTPServer()
 	go rt.InstagramStream()
 	//go rt.generateGeoData()
 	go rt.twitterStream()
 	go rt.broadcastData()
 
-	http.HandleFunc("/instagram", func(w http.ResponseWriter, r *http.Request) {
-		rt.instagramHandler(w, r)
-	})
-	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
-	http.Handle("/", http.HandlerFunc(HomeHandler))
-	http.Handle("/sock", websocket.Handler(rt.WebSocketServer))
-
-	err = http.ListenAndServe(":"+rt.config.Port, nil)
+	err = <-rt.errChan
 
 	if err != nil {
 		log.Println(err)
