@@ -552,10 +552,10 @@ func main() {
 	}
 
 	go rt.startHTTPServer()
-	go rt.InstagramStream()
+	go rt.broadcastData()
 	//go rt.generateGeoData()
 	go rt.twitterStream()
-	go rt.broadcastData()
+	go rt.InstagramStream()
 
 	err = <-rt.errChan
 
