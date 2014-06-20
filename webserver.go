@@ -334,7 +334,7 @@ func (rt *RealtimeAnalyzer) twitterStream() {
 	client.Timeout = 0
 
 	for {
-		// latitude/longitude of New York City
+		// latitude/longitude of the locations defined in the config.xml file
 		conn, err := client.Locations(twitterstream.Point{twitterstream.Latitude(rt.config.TwitterConfig.Location[0].Lat), twitterstream.Longitude(rt.config.TwitterConfig.Location[0].Long)},
 			twitterstream.Point{twitterstream.Latitude(rt.config.TwitterConfig.Location[1].Lat), twitterstream.Longitude(rt.config.TwitterConfig.Location[1].Long)})
 
@@ -374,10 +374,7 @@ func (rt *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
 	}
 }
 
-// http://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis
 func (rt *RealtimeAnalyzer) InstagramStream() {
-	//time.Sleep(2 * time.Second)
-
 	rt.instagramClient = instagram.NewClient(nil)
 	rt.instagramClient.ClientID = rt.config.InstagramConfig.ClientID
 	rt.instagramClient.ClientSecret = rt.config.InstagramConfig.ClientSecret
