@@ -1,4 +1,4 @@
-package main
+package sentiment
 
 import (
 	"bufio"
@@ -164,7 +164,7 @@ func (s *SentimentAnalysis) trainClassifier(filename string) {
 	}
 }
 
-func (s *SentimentAnalysis) getClass(sentence string) int {
+func (s *SentimentAnalysis) getClass(sentence string) string {
 	// split the sentence into tokens
 	words := s.tokenize(strings.ToLower(sentence))
 	// get the score for each class
@@ -173,26 +173,13 @@ func (s *SentimentAnalysis) getClass(sentence string) int {
 	// get class with max value
 	classNum := getIndexMax(score)
 
-	classVal := classNum[0]
 	if classNum[1] > 0 {
-		classVal = 2
+		return "neutral"
 	}
 
-	return classVal
-}
-
-func main() {
-	s := new(SentimentAnalysis)
-
-	s.trainClassifier("AFINN-111.txt")
-
-	classVal := s.getClass("I blame the novel pizza") //("I love the fucking pizza") //("I love the fucking pizza") //brilliant
-
-	if classVal == 0 {
-		fmt.Println("negative")
-	} else if classVal == 1 {
-		fmt.Println("positive")
-	} else if classVal == 2 {
-		fmt.Println("neutral")
-	}
+	if classNum[0] == 0 {
+    return "negative"
+  } else {
+    return "positive"
+  }
 }
