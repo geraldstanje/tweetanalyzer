@@ -9,7 +9,7 @@ func TestSimple(t *testing.T) {
 
 	s.trainClassifier("AFINN-111.txt")
 
-	classVal := s.getClass("I blame the novel pizza")
+	classVal := s.getClass("I blame the clever pizza cook")
 	if classVal != "neutral" {
 		t.Error("neutral classification failed")
 	}

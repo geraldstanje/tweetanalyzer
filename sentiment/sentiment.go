@@ -179,7 +179,7 @@ func (s *SentimentAnalysis) getClass(sentence string) string {
 
 	if classNum[0] == 0 {
 		return "negative"
-	} else {
-		return "positive"
 	}
+
+	return "positive"
 }
