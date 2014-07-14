@@ -129,8 +129,16 @@ func (s *SentimentAnalysis) loadTrainingSet(filename string) (SliceSet, error) {
 			return dict, err // if you return error
 		} else {
 			s = s[0 : len(s)-1] // remove '\n'
+      s = strings.Replace(s, ".", "", -1)
+      s = strings.ToLower(s)
 			word := strings.Split(s, "\t")
-			dict.add(stringToInt(word[1]), word[0])
+
+      //fmt.Println(word)
+      //fmt.Println(word[0])
+      //fmt.Println(word[1])
+
+      //dict.add(stringToInt(word[1]), word[0])
+			dict.add(stringToInt(word[0]), word[1])
 		}
 	}
 
@@ -142,44 +150,58 @@ func (s *SentimentAnalysis) trainClassifier(filename string) {
 
 	dict, _ := s.loadTrainingSet(filename)
 
+  //fmt.Println(dict)
+
 	for i, class := range dict {
+    //fmt.Println(i)
+    //fmt.Println(i)
+    //fmt.Println(class[0])
+
 		// negative sentiment score
-		if i >= -5 && i < 0 {
-			for val := 0; val < Abs(i)+1; val++ {
-				s.classifier.Learn(class, Negative)
-			}
-			// positive sentiment score
-		} else if i > 0 && i <= 5 {
-			for val := 0; val < Abs(i)+1; val++ {
-				s.classifier.Learn(class, Positive)
-			}
-		}
-		// neutral sentiment score is inserted in both classes
 		if i == 0 {
-			for val := 0; val < Abs(i)+1; val++ {
 				s.classifier.Learn(class, Negative)
+			// positive sentiment score
+		} else if i == 1 {
 				s.classifier.Learn(class, Positive)
-			}
 		}
+
+    /*if i >= -5 && i <= -1 {
+      s.classifier.Learn(class, Negative)
+    } else if i > 1 && i <= 5 {
+      s.classifier.Learn(class, Positive)
+    }
+
+    if i == 0 {
+      s.classifier.Learn(class, Negative)
+      s.classifier.Learn(class, Positive)
+    }*/
+
 	}
 }
 
-func (s *SentimentAnalysis) getClass(sentence string) string {
+func (s *SentimentAnalysis) getClass(sentence string) int {
 	// split the sentence into tokens
 	words := s.tokenize(strings.ToLower(sentence))
 	// get the score for each class
 	score, _, _ := s.classifier.LogScores(words)
 
+  fmt.Println(score)
+
+  if score[0] > score[1] {
+    return 0 
+  }
+
+  return 1
 	// get class with max value
-	classNum := getIndexMax(score)
+	//classNum := getIndexMax(score)
 
-	if classNum[1] > 0 {
-		return "neutral"
-	}
+	//if classNum[1] > 0 {
+	//	return 2
+	//}
 
-	if classNum[0] == 0 {
-		return "negative"
-	}
+	//if classNum[0] == 0 {
+	//	return 0
+	//}
 
-	return "positive"
+	//return 1
 }
