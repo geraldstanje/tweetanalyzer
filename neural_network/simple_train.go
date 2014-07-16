@@ -14,8 +14,8 @@ func main() {
   ann := fann.CreateStandard(numLayers, []uint32{2, 3, 1})
 
   ann.SetTrainingAlgorithm(fann.TRAIN_INCREMENTAL)
-  ann.SetActivationFunctionHidden(fann.GAUSSIAN_SYMMETRIC)
-  ann.SetActivationFunctionOutput(fann.GAUSSIAN_SYMMETRIC)
+  //ann.SetActivationFunctionHidden(fann.SIGMOID)
+  ann.SetActivationFunctionOutput(fann.SIGMOID_SYMMETRIC)
   ann.SetLearningMomentum(0.4)
   
   trainInput := [][]fann.FannType{{-1.0, -1.0}, {-1.0, 1.0}, {1.0, -1.0}, {1.0, 1.0}}
