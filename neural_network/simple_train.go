@@ -1,33 +1,30 @@
 package main
 
 import (
-	"github.com/white-pony/go-fann"
+  "github.com/white-pony/go-fann"
   "fmt"
 )
 
 func main() {
-	const numLayers = 3
-	const desiredError = 0.00001
-	const maxEpochs = 500000
-	const epochsBetweenReports = 1000
+  const numLayers = 3
+  const desiredError = 0.00001
+  const maxEpochs = 500000
+  const epochsBetweenReports = 1000
 
-	ann := fann.CreateStandard(numLayers, []uint32{2, 3, 1})
-	ann.SetActivationFunctionHidden(fann.SIGMOID_SYMMETRIC)
-	ann.SetActivationFunctionOutput(fann.SIGMOID_SYMMETRIC)
-	
+  ann := fann.CreateStandard(numLayers, []uint32{2, 3, 1})
+
+  ann.SetTrainingAlgorithm(fann.TRAIN_INCREMENTAL)
+  ann.SetActivationFunctionHidden(fann.GAUSSIAN_SYMMETRIC)
+  ann.SetActivationFunctionOutput(fann.GAUSSIAN_SYMMETRIC)
+  ann.SetLearningMomentum(0.4)
+  
   trainInput := [][]fann.FannType{{-1.0, -1.0}, {-1.0, 1.0}, {1.0, -1.0}, {1.0, 1.0}}
   trainOutput := [][]fann.FannType{{-1.0}, {1.0}, {1.0}, {-1.0}}
 
   for i := 1; i <= maxEpochs; i++ {
-    //ann.ResetMSE()
-    
-    //fmt.Println(trainInput)
-    //fmt.Println(trainOutput)
+    ann.ResetMSE()
 
     for i, _ := range trainInput {
-
-      fmt.Println(trainOutput[i])
-
       ann.Train(trainInput[i], trainOutput[i])
     }
 
@@ -35,9 +32,6 @@ func main() {
       break
     }
   }
-
-  //ann.TrainOnFile("xor.train", maxEpochs, epochsBetweenReports, desiredError)
-	ann.Save("xor_float.net")
 
   fmt.Println("Testing network")
 
