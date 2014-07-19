@@ -130,7 +130,7 @@ func main() {
     return
   }
 
-  // train our model
+  // train the model
   trainingData, err := loadDataSet("trainingset.txt")
   if err != nil {
     log.Fatal(err)
@@ -148,8 +148,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-
-  // test our model
+  // test the model
   testData, err := loadDataSet("testdata.txt")
   if err != nil {
     log.Fatal(err)
