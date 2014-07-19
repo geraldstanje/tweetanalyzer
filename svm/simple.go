@@ -124,10 +124,9 @@ func main() {
 	problem := gosvm.NewProblem()
 
   // create bag of words dictionary, which is used for the densevector
-  bagOfWords, err := createDict("bagofwords.txt")
+  bagOfWords, err := createDict("bag_of_words.txt")
   if err != nil {
     fmt.Println(err)
-    return
   }
 
   // train the model
