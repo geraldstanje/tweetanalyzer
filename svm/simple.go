@@ -15,8 +15,19 @@ import (
 var myExp = regexp.MustCompile(`\s`)
 
 type SliceData struct {
-	i int
-	s string
+	i int // label: negative == 0, positive == 1
+	s string // text
+}
+
+type SliceSet map[string]int
+
+func (s SliceSet) Add(key string, value int) {
+  s[key] = value
+}
+
+func (s SliceSet) Peek(key string) (int, bool) {
+  ret, ok := s[key]
+  return ret, ok
 }
 
 func stringToInt(str string) int {
@@ -65,116 +76,38 @@ func loadDataSet(filename string) ([]SliceData, error) {
 	return dict, err
 }
 
-func tokenize(sentence string) []float64 {
-	// TODO: should be moved to a file
-	dict := map[string]int{
-		"crappy":        0,
-		"ugly":          1,
-		"able":          2,
-		"absolute":      3,
-		"amazing":       4,
-		"appropriate":   5,
-		"awesome":       6,
-		"bad":           7,
-		"beautiful":     8,
-		"benefit":       9,
-		"best":          10,
-		"better":        11,
-		"blowing":       12,
-		"cheap":         13,
-		"classic":       14,
-		"clear":         15,
-		"compact":       16,
-		"compare":       17,
-		"daunting":      18,
-		"decent":        19,
-		"definitely":    20,
-		"disappoint":    21,
-		"disappointed":  22,
-		"disappointing": 23,
-		"enjoy":         24,
-		"epic":          25,
-		"error":         26,
-		"even":          27,
-		"ever":          28,
-		"every":         29,
-		"excellent":     30,
-		"exciting":      31,
-		"extra":         32,
-		"far":           33,
-		"favorite":      34,
-		"feel":          35,
-		"genuine":       36,
-		"good":          37,
-		"grand":         38,
-		"great":         39,
-		"greatest":      40,
-		"happy":         41,
-		"harmful":       42,
-		"hate":          43,
-		"here":          44,
-		"highly":        45,
-		"honest":        46,
-		"illogical":     47,
-		"inexpensive":   48,
-		"interested":    49,
-		"like":          50,
-		"lot":           51,
-		"lots":          52,
-		"love":          53,
-		"lovely":        54,
-		"loving":        55,
-		"main":          56,
-		"masterpiece":   57,
-		"mind":          58,
-		"mindblowing":   59,
-		"misleading":    60,
-		"more":          61,
-		"most":          62,
-		"much":          63,
-		"must":          64,
-		"never":         65,
-		"no":            66,
-		"not":           67,
-		"obvious":       68,
-		"perfectly":     69,
-		"point":         70,
-		"pretty":        71,
-		"quality":       72,
-		"quite":         73,
-		"really":        74,
-		"recommended":   75,
-		"reject":        76,
-		"rejected":      77,
-		"respect":       78,
-		"scam":          79,
-		"scary":         80,
-		"simple":        81,
-		"simply":        82,
-		"stars":         83,
-		"strong":        84,
-		"succinct":      85,
-		"suggest":       86,
-		"sure":          87,
-		"terrible":      88,
-		"there":         89,
-		"thoroughly":    90,
-		"tired":         91,
-		"total":         92,
-		"unimportant":   93,
-		"useful":        94,
-		"very":          95,
-		"visit":         96,
-		"well":          97,
-		"winning":       98,
-		"worse":         99,
-		"worst":         100,
-		"worth":         101,
-		"worthwhile":    102,
-	}
+func createDict(filename string) (SliceSet, error) {
+  dict := make(SliceSet)
+  counter := 0
 
+  f, err := os.Open(filename)
+  if err != nil {
+    fmt.Println("error opening file ", err)
+    return dict, err
+  }
+  defer f.Close()
+  r := bufio.NewReader(f)
+  for {
+    s, err := r.ReadString('\n')
+    if err == io.EOF {
+      // do something here
+      break
+    } else if err != nil {
+      return dict, err // if you return error
+    } else {
+      s = s[0 : len(s)-1] // remove '\n'
+      
+      dict.Add(s, counter)
+      counter++
+    }
+  }
+
+  return dict, err
+}
+
+func tokenize(dict SliceSet, sentence string) []float64 {
 	var vec []float64
-	vec = make([]float64, 102)
+	vec = make([]float64, len(dict))
 	sentence = strings.ToLower(sentence)
 	words := myExp.Split(sentence, -1)
 
@@ -188,28 +121,58 @@ func tokenize(sentence string) []float64 {
 }
 
 func main() {
-	dict, err := loadDataSet("trainingset.txt")
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	problem := gosvm.NewProblem()
 
+  // create bag of words dictionary, which is used for the densevector
+  bagOfWords, err := createDict("bagofwords.txt")
+  if err != nil {
+    fmt.Println(err)
+    return
+  }
+
+  // train our model
+  trainingData, err := loadDataSet("trainingset.txt")
+  if err != nil {
+    log.Fatal(err)
+  }
+
 	// We will use the words as our features
-	for _, val := range dict {
-		problem.Add(gosvm.TrainingInstance{float64(val.i), gosvm.FromDenseVector(tokenize(val.s))})
+	for _, val := range trainingData {
+		problem.Add(gosvm.TrainingInstance{float64(val.i), gosvm.FromDenseVector(tokenize(bagOfWords, val.s))})
 	}
 
 	param := gosvm.DefaultParameters()
-	param.Kernel = gosvm.NewRBFKernel(0.1) //NewPolynomialKernel(1.0, 0.1, 1)
+	param.Kernel = gosvm.NewRBFKernel(0.2) //NewPolynomialKernel(1.0, 0.1, 1)
 	model, err := gosvm.TrainModel(param, problem)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	label1 := model.Predict(gosvm.FromDenseVector(tokenize("This is a beautiful book")))
-	fmt.Printf("Predicted label: %f\n", label1)
 
-	label2 := model.Predict(gosvm.FromDenseVector(tokenize("I hat the hot weather today..")))
-	fmt.Printf("Predicted label: %f\n", label2)
+  // test our model
+  testData, err := loadDataSet("testdata.txt")
+  if err != nil {
+    log.Fatal(err)
+  }
+  flailCounter := 0
+  counter := 0
+  for _, val := range testData {
+    // we dont analyze neutral messages
+    if val.i != 2 {
+      label := model.Predict(gosvm.FromDenseVector(tokenize(bagOfWords, val.s)))
+
+      if val.i == 4 {
+        val.i = 1
+      }
+
+      if int(label) != val.i {
+        flailCounter++
+      }
+
+      counter++
+    }
+  }
+
+  // print error rate
+  fmt.Println(float64(flailCounter)/float64(counter))
 }
