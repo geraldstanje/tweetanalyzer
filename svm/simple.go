@@ -15,19 +15,19 @@ import (
 var myExp = regexp.MustCompile(`\s`)
 
 type SliceData struct {
-	i int // label: negative == 0, positive == 1
+	i int    // label: negative == 0, positive == 1
 	s string // text
 }
 
 type SliceSet map[string]int
 
 func (s SliceSet) Add(key string, value int) {
-  s[key] = value
+	s[key] = value
 }
 
 func (s SliceSet) Peek(key string) (int, bool) {
-  ret, ok := s[key]
-  return ret, ok
+	ret, ok := s[key]
+	return ret, ok
 }
 
 func stringToInt(str string) int {
@@ -77,32 +77,32 @@ func loadDataSet(filename string) ([]SliceData, error) {
 }
 
 func createDict(filename string) (SliceSet, error) {
-  dict := make(SliceSet)
-  counter := 0
+	dict := make(SliceSet)
+	counter := 0
 
-  f, err := os.Open(filename)
-  if err != nil {
-    fmt.Println("error opening file ", err)
-    return dict, err
-  }
-  defer f.Close()
-  r := bufio.NewReader(f)
-  for {
-    s, err := r.ReadString('\n')
-    if err == io.EOF {
-      // do something here
-      break
-    } else if err != nil {
-      return dict, err // if you return error
-    } else {
-      s = s[0 : len(s)-1] // remove '\n'
-      
-      dict.Add(s, counter)
-      counter++
-    }
-  }
+	f, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("error opening file ", err)
+		return dict, err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+	for {
+		s, err := r.ReadString('\n')
+		if err == io.EOF {
+			// do something here
+			break
+		} else if err != nil {
+			return dict, err // if you return error
+		} else {
+			s = s[0 : len(s)-1] // remove '\n'
 
-  return dict, err
+			dict.Add(s, counter)
+			counter++
+		}
+	}
+
+	return dict, err
 }
 
 func tokenize(dict SliceSet, sentence string) []float64 {
@@ -123,17 +123,17 @@ func tokenize(dict SliceSet, sentence string) []float64 {
 func main() {
 	problem := gosvm.NewProblem()
 
-  // create bag of words dictionary, which is used for the densevector
-  bagOfWords, err := createDict("bag_of_words.txt")
-  if err != nil {
-    fmt.Println(err)
-  }
+	// create bag of words dictionary, which is used for the densevector
+	bagOfWords, err := createDict("bag_of_words.txt")
+	if err != nil {
+		fmt.Println(err)
+	}
 
-  // train the model
-  trainingData, err := loadDataSet("trainingset.txt")
-  if err != nil {
-    log.Fatal(err)
-  }
+	// train the model
+	trainingData, err := loadDataSet("trainingset.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// We will use the words as our features
 	for _, val := range trainingData {
@@ -147,30 +147,31 @@ func main() {
 		log.Fatal(err)
 	}
 
-  // test the model
-  testData, err := loadDataSet("testdata.txt")
-  if err != nil {
-    log.Fatal(err)
-  }
-  flailCounter := 0
-  counter := 0
-  for _, val := range testData {
-    // we dont analyze neutral messages
-    if val.i != 2 {
-      label := model.Predict(gosvm.FromDenseVector(tokenize(bagOfWords, val.s)))
+	// test the model
+	testData, err := loadDataSet("testdata.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-      if val.i == 4 {
-        val.i = 1
-      }
+	flailCounter := 0
+	counter := 0
+	for _, val := range testData {
+		// we dont analyze neutral messages
+		if val.i != 2 {
+			label := model.Predict(gosvm.FromDenseVector(tokenize(bagOfWords, val.s)))
 
-      if int(label) != val.i {
-        flailCounter++
-      }
+			if val.i == 4 {
+				val.i = 1
+			}
 
-      counter++
-    }
-  }
+			if int(label) != val.i {
+				flailCounter++
+			}
 
-  // print error rate
-  fmt.Println(float64(flailCounter)/float64(counter))
+			counter++
+		}
+	}
+
+	// print error rate
+	fmt.Println(float64(flailCounter) / float64(counter))
 }
