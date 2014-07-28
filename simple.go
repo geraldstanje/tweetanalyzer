@@ -219,11 +219,13 @@ func calcWordFreq(s []SliceData) (PairList, error) {
   return sorted, nil
 }
 
-func createBagOfWords(filename string, wordFreq PairList, duplicateThreshold int) error {
+func createBagOfWords(filename string, wordFreq PairList, bagSize int) error {
   var buffer bytes.Buffer
 
-  for _, word := range(wordFreq) {
-    if word.Value > duplicateThreshold {
+  index := len(wordFreq) - bagSize
+
+  for i, word := range(wordFreq) {
+    if i > index {
       buffer.WriteString(word.Key + "\n")
     }
   }
@@ -236,7 +238,7 @@ func main() {
 	problem := gosvm.NewProblem()
 
 	// train the model
-	trainingData, err := loadDataSet("2014_a_train.txt", 4, 5)
+	trainingData, err := loadDataSet("2014_a_train.txt", 4, 5) //"2014_b_train.txt", 2, 3
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -246,7 +248,7 @@ func main() {
     log.Fatal(err)
   }
 
-  err = createBagOfWords("bag_of_words.txt", wordFreq, 30)
+  err = createBagOfWords("bag_of_words.txt", wordFreq, 100)
   if err != nil {
     log.Fatal(err)
   }
@@ -257,14 +259,14 @@ func main() {
     fmt.Println(err)
   }
 
-	// We will use the words as our features
+	// We will use the words from the bagofWords as our features
 	for _, val := range trainingData {
 		problem.Add(gosvm.TrainingInstance{float64(val.i), gosvm.FromDenseVector(tokenize(bagOfWords, val.s))})
 	}
 
 	param := gosvm.DefaultParameters()
   param.Kernel = gosvm.NewLinearKernel()
-	param.SVMType = gosvm.NewCSVC(0.005)//0.005)
+	param.SVMType = gosvm.NewCSVC(0.005)
   //param.Kernel = gosvm.NewRBFKernel(0.2) //NewPolynomialKernel(1.0, 0.1, 1)
 	model, err := gosvm.TrainModel(param, problem)
 	if err != nil {
@@ -272,7 +274,7 @@ func main() {
 	}
 
 	// test the model
-	testData, err := loadDataSet("2014_a_dev.txt", 4, 5)
+	testData, err := loadDataSet("2014_a_dev.txt", 4, 5) //"2014_b_dev.txt", 2, 3
 	if err != nil {
 		log.Fatal(err)
 	}
