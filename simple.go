@@ -83,7 +83,7 @@ func strcmp(a, b string) int {
 }
 
 func loadDataSet(filename string, index1 int, index2 int) ([]SliceData, error) {
-	dict := make([]SliceData, 1)
+	dict := make([]SliceData, 0)
 
 	f, err := os.Open(filename)
 	if err != nil {
@@ -106,18 +106,20 @@ func loadDataSet(filename string, index1 int, index2 int) ([]SliceData, error) {
 
 			if len(word) > 1 {
 				if (strcmp(word[index1], "positive") == 0) || (strcmp(word[index1], "neutral") == 0) || (strcmp(word[index1], "negative") == 0) {
-					x := SliceData{}
+          var i int
+          var str string
 
 					if strcmp(word[index1], "positive") == 0 {
-						x.i = 1
+						i = 1
 					} else if strcmp(word[index1], "negative") == 0 {
-						x.i = -1
+						i = -1
 					} else if strcmp(word[index1], "neutral") == 0 {
-						x.i = 0
+						i = 0
 					}
 
-					x.s = word[index2]
-					dict = append(dict, x)
+					str = word[index2]
+          x := SliceData{i, str[0:len(str)-1]}
+          dict = append(dict, x)
 				}
 			}
 		}
@@ -163,7 +165,13 @@ func tokenize(dict SliceSet, sentence string) []float64 {
 
 	for _, w := range words {
 		x := w
-		x = strings.Replace(x, "\t", "", -1)
+    x = strings.Replace(x, "#", "", -1)
+    x = strings.Replace(x, ".", "", -1)
+    x = strings.Replace(x, "!", "", -1)
+    x = strings.Replace(x, ",", "", -1)
+    x = strings.Replace(x, "?", "", -1)
+    x = strings.Replace(x, "!", "", -1)
+		/*x = strings.Replace(x, "\t", "", -1)
 		x = strings.Replace(x, "?", "", -1)
 		x = strings.Replace(x, "!", "", -1)
 		x = strings.Replace(x, ".", "", -1)
@@ -175,10 +183,10 @@ func tokenize(dict SliceSet, sentence string) []float64 {
 		x = strings.Replace(x, "0", "", -1)
 		x = strings.Replace(x, "1", "", -1)
 		x = strings.Replace(x, "2", "", -1)
-		x = strings.Replace(x, "\"", "", -1)
+		x = strings.Replace(x, "\"", "", -1)*/
 
 		if val, ok := dict[x]; ok {
-			vec[val] = 1
+			vec[val] = vec[val] + 1
 		}
 	}
 
@@ -192,7 +200,13 @@ func calcWordFreq(s []SliceData) (PairList, error) {
 	for _, sentence := range s {
 		x := sentence.s
 		x = strings.ToLower(x)
-		x = strings.Replace(x, "\t", "", -1)
+    x = strings.Replace(x, "#", "", -1)
+    x = strings.Replace(x, ".", "", -1)
+    x = strings.Replace(x, "!", "", -1)
+    x = strings.Replace(x, ",", "", -1)
+    x = strings.Replace(x, "?", "", -1)
+    x = strings.Replace(x, "!", "", -1)
+		/*x = strings.Replace(x, "\t", "", -1)
 		x = strings.Replace(x, "?", "", -1)
 		x = strings.Replace(x, "!", "", -1)
 		x = strings.Replace(x, ".", "", -1)
@@ -204,7 +218,7 @@ func calcWordFreq(s []SliceData) (PairList, error) {
 		x = strings.Replace(x, "0", "", -1)
 		x = strings.Replace(x, "1", "", -1)
 		x = strings.Replace(x, "2", "", -1)
-		x = strings.Replace(x, "\"", "", -1)
+		x = strings.Replace(x, "\"", "", -1)*/
 
 		words := strings.Split(x, " ")
 
@@ -213,6 +227,14 @@ func calcWordFreq(s []SliceData) (PairList, error) {
 				dict[w] = dict[w] + 1
 			}
 		}
+
+    bigrams := createBigrams(x)
+
+    for _, w := range bigrams {
+      if len(w) > 1 {
+        dict[w] = dict[w] + 1
+      }
+    }
 	}
 
 	sorted = sortMapByValue(dict)
@@ -221,18 +243,41 @@ func calcWordFreq(s []SliceData) (PairList, error) {
 
 func createBagOfWords(filename string, wordFreq PairList, bagSize int) error {
 	var buffer bytes.Buffer
-
+  
 	index := len(wordFreq) - bagSize
 
 	for i, word := range wordFreq {
-		if i > index {
-			buffer.WriteString(word.Key + "\n")
-		}
+		if i >= index {
+			buffer.WriteString(word.Key)
+      buffer.WriteString("\n")
+    }
 	}
 
-	err := ioutil.WriteFile(filename, []byte(buffer.String()), 0644)
+	err := ioutil.WriteFile(filename, buffer.Bytes(), 0644)
 	return err
 }
+
+func createBigrams(s string) []string {
+  i := 0
+  j := strings.Index(s, " ")
+  if j < 0 {
+    return nil
+  }
+  j += 1
+  var result []string
+  for {
+    k := strings.Index(s[j:], " ")
+    if k < 0 {
+      result = append(result, s[i:])
+      break
+    }
+    result = append(result, s[i:j+k])
+    i = j
+    j += k + 1
+  }
+  return result
+}
+
 
 func main() {
 	problem := gosvm.NewProblem()
@@ -248,7 +293,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = createBagOfWords("bag_of_words.txt", wordFreq, 100)
+	err = createBagOfWords("bag_of_words.txt", wordFreq, 3500)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -266,7 +311,7 @@ func main() {
 
 	param := gosvm.DefaultParameters()
 	param.Kernel = gosvm.NewLinearKernel()
-	param.SVMType = gosvm.NewCSVC(0.005)
+	param.SVMType = gosvm.NewCSVC(0.05)
 	//param.Kernel = gosvm.NewRBFKernel(0.2) //NewPolynomialKernel(1.0, 0.1, 1)
 	model, err := gosvm.TrainModel(param, problem)
 	if err != nil {
