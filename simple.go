@@ -13,9 +13,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+  "time"
+  "github.com/reiver/go-porterstemmer"
 )
 
-var myExp = regexp.MustCompile(`([A-Za-z]|[:o*\-\]\[\)\(\}\{]{2,3})+`) //(`\W+`)
+var myExp = regexp.MustCompile(`([A-Za-z]+)`) 
+var myExp1 = regexp.MustCompile(`([A-Za-z]+|[:o*\-\]\[\)\(\}\{]{2,3})+`) //(`\W+`)
+var myExp2 = regexp.MustCompile(`[^\s\x{A0}]+`)
 
 // A slice of Pairs that implements sort.Interface to sort by Value.
 type PairList []Pair
@@ -27,7 +31,7 @@ type Pair struct {
 }
 
 type SliceData struct {
-	i int    // label: negative == 0, positive == 1
+	i int    // label: negative == -1, neutral == 0, positive == 1
 	s string // text
 }
 
@@ -82,7 +86,7 @@ func strcmp(a, b string) int {
 	return diff
 }
 
-func loadDataSet(filename string, index1 int, index2 int) ([]SliceData, error) {
+func loadTrainDataSet(filename string, index1 int, index2 int) ([]SliceData, error) {
 	dict := make([]SliceData, 0)
 
 	f, err := os.Open(filename)
@@ -106,7 +110,9 @@ func loadDataSet(filename string, index1 int, index2 int) ([]SliceData, error) {
 			word := strings.Split(s, "\t")
 
 			if len(word) > 1 {
-				if (strcmp(word[index1], "positive") == 0) || (strcmp(word[index1], "neutral") == 0) || (strcmp(word[index1], "negative") == 0) {
+				if (strcmp(word[index1], "positive") == 0) || 
+           (strcmp(word[index1], "neutral") == 0) || 
+           (strcmp(word[index1], "negative") == 0) {
           var i int
           var str string
 
@@ -127,6 +133,55 @@ func loadDataSet(filename string, index1 int, index2 int) ([]SliceData, error) {
 	}
 
 	return dict, err
+}
+
+func loadTestDataSet(filename string, index1 int, index2 int) ([]SliceData, error) {
+  dict := make([]SliceData, 0)
+
+  f, err := os.Open(filename)
+  if err != nil {
+    fmt.Println("error opening file ", err)
+    return dict, err
+  }
+  defer f.Close()
+  r := bufio.NewReader(f)
+  for {
+    s, err := r.ReadString('\n')
+    if err == io.EOF {
+      // do something here
+      break
+    } else if err != nil {
+      return dict, err // if you return error
+    } else {
+      s = s[0 : len(s)-1] // remove '\n'
+      s = strings.ToLower(s)
+
+      word := strings.Split(s, "\t")
+
+      if len(word) > 1 && strings.HasPrefix(word[0], "twitter") {
+        if (strcmp(word[index1], "positive") == 0) || 
+           (strcmp(word[index1], "neutral") == 0) || 
+           (strcmp(word[index1], "negative") == 0) {
+          var i int
+          var str string
+
+          if strcmp(word[index1], "positive") == 0 {
+            i = 1
+          } else if strcmp(word[index1], "negative") == 0 {
+            i = -1
+          } else if strcmp(word[index1], "neutral") == 0 {
+            i = 0
+          }
+
+          str = word[index2]
+          x := SliceData{i, str[0:len(str)-1]}
+          dict = append(dict, x)
+        }
+      }
+    }
+  }
+
+  return dict, err
 }
 
 func createDict(filename string) (SliceSet, error) {
@@ -162,61 +217,94 @@ func tokenize(dict SliceSet, sentence string) []float64 {
 	vec := make([]float64, len(dict))
 
 	sentence = strings.ToLower(sentence)
-	words := myExp.FindAllString(sentence, -1) //Split(sentence, -1)
+  sentence = strings.Replace(sentence, "\\u2019", "'", -1) // "\\u2019", "’", -1)
+  sentence = strings.Replace(sentence, "\\u002c", ",", -1)
+
+	words := myExp1.FindAllString(sentence, -1)
 
 	for _, str := range words {
-		if val, ok := dict[str]; ok {
-			vec[val] = vec[val] + 1
-		}
+    stemmed := porterstemmer.StemString(str)
+
+    if val, ok := dict[stemmed]; ok {
+      vec[val] = vec[val] + 1
+    }
 	}
 
 	return vec
 }
 
-func calcWordFreq(s []SliceData) (PairList, error) {
+func calcWordFreq(s1 []SliceData, s2 []SliceData) (PairList, error) {
 	dict := make(map[string]int)
 	var sorted PairList
 
-	for _, sentence := range s {
+	for _, sentence := range s1 {
     sentence.s = strings.ToLower(sentence.s)
-    words := myExp.FindAllString(sentence.s, -1) //Split(sentence.s, -1)
+    words := myExp.FindAllString(sentence.s, -1)
 
 		for _, w := range words {
-			if len(w) > 1 {
-				dict[w] = dict[w] + 1
-			}
+      //if key, ok := negation[w]; !ok {
+      //  w = key
+      //}
+
+      stemmed := porterstemmer.StemString(w)
+      if len(stemmed) > 1 {
+        dict[stemmed] = dict[stemmed] + 1
+      }
 		}
 
-    /*bigrams := createBigrams(sentence.s)
+    bigrams := createBigrams(sentence.s)
 
     for _, w := range bigrams {
       if len(w) > 1 {
         dict[w] = dict[w] + 1
       }
-    }*/
+    }
 	}
+
+for _, sentence := range s2 {
+    sentence.s = strings.ToLower(sentence.s)
+    words := myExp.FindAllString(sentence.s, -1)
+
+    for _, w := range words {
+      //if key, ok := negation[w]; !ok {
+      //  w = key
+      //}
+
+      stemmed := porterstemmer.StemString(w)
+      if len(stemmed) > 1 {
+        dict[stemmed] = dict[stemmed] + 1
+      }
+    }
+
+    bigrams := createBigrams(sentence.s)
+
+    for _, w := range bigrams {
+      if len(w) > 1 {
+        dict[w] = dict[w] + 1
+      }
+    }
+  }
 
 	sorted = sortMapByValue(dict)
 	return sorted, nil
 }
 
-func createBagOfWords(filename string, wordFreq PairList, bagSize int) error {
+func createBagOfWords(filename string, wordFreq PairList, freqMin int, freqMax int, stopWords SliceSet, emoticons SliceSet) error {
 	var buffer bytes.Buffer
-  
-	index := len(wordFreq) - bagSize
 
-	for i, word := range wordFreq {
-		if i >= index {
-			buffer.WriteString(word.Key)
-      buffer.WriteString("\n")
+	for _, word := range wordFreq {
+    if _, ok := stopWords[word.Key]; !ok {
+      if word.Value >= freqMin && word.Value <= freqMax {
+        buffer.WriteString(word.Key)
+        buffer.WriteString("\n")
+      }
     }
 	}
 
-  /*emotions := []string{":-)", ";-)", ":-(", ";-("}
-  for _, str := range(emotions) {
-    buffer.WriteString(str)
+  for word, _ := range emoticons {
+    buffer.WriteString(word)
     buffer.WriteString("\n")
-  }*/
+  }
 
 	err := ioutil.WriteFile(filename, buffer.Bytes(), 0644)
 	return err
@@ -243,23 +331,123 @@ func createBigrams(s string) []string {
   return result
 }
 
+func loadNegationMarkers(filename string) (map[string]string, error) {
+  dict := make(map[string]string)
+
+  f, err := os.Open(filename)
+  if err != nil {
+    fmt.Println("error opening file ", err)
+    return dict, err
+  }
+  defer f.Close()
+  r := bufio.NewReader(f)
+  for {
+    s, err := r.ReadString('\n')
+    if err == io.EOF {
+      // do something here
+      break
+    } else if err != nil {
+      return dict, err // if you return error
+    } else {
+      s = s[0 : len(s)-1] // remove '\n'
+      s = strings.ToLower(s)
+
+      word := strings.Split(s, "\t")
+
+      dict[word[0]] = word[1] 
+    }
+  }
+
+  return dict, err
+}
+
+func loadEmoticonsDataSet(filename string) (SliceSet, error) {
+  dict := make(SliceSet)
+
+  f, err := os.Open(filename)
+  if err != nil {
+    fmt.Println("error opening file ", err)
+    return dict, err
+  }
+  defer f.Close()
+  r := bufio.NewReader(f)
+  for {
+    s, err := r.ReadString('\n')
+    if err == io.EOF {
+      // do something here
+      break
+    } else if err != nil {
+      return dict, err // if you return error
+    } else {
+      s = s[0 : len(s)-1] // remove '\n'
+
+      words := strings.Split(s, "\t")
+
+      if len(words) > 1 {
+        var i int
+
+        word := myExp2.FindAllString(words[0], -1) //strings.Fields
+
+        if strcmp(words[1], "Positive") == 0 {
+          i = 1
+        } else if strcmp(words[1], "Extremely-Positive") == 0 {
+          i = 2
+        } else if strcmp(words[1], "Negative") == 0 {
+          i = -1
+        } else if strcmp(words[1], "Extremely-Negative") == 0 {
+          i = - 2
+        } else if strcmp(words[1], "Neutral") == 0 {
+          i = 0
+        }
+
+        for _, w := range word {
+          dict.Add(w, i)
+        }
+      }
+    }
+  }
+
+  return dict, err
+}
 
 func main() {
+  // Perform training
+  start := time.Now()
 	problem := gosvm.NewProblem()
 
 	// train the model
-  //trainingData, err := loadDataSet("2014_a_train.txt", 4, 5)
-	trainingData, err := loadDataSet("2014_b_train.txt", 2, 3)
+	trainingData1, err := loadTrainDataSet("2014_b_train.txt", 2, 3)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	wordFreq, err := calcWordFreq(trainingData)
+  trainingData2, err := loadTrainDataSet("2014_b_dev.txt", 2, 3)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  //negation, err := loadNegationMarkers("negation_markers.txt")
+  //if err != nil {
+  //  log.Fatal(err)
+  //}
+
+  // create bag of words dictionary, which is used for the densevector
+  stopWords, err := createDict("stop_words.txt")
+  if err != nil {
+    fmt.Println(err)
+  }
+
+  emoticons, err := loadEmoticonsDataSet("emoticons_with_polority.txt")
+  if err != nil {
+    fmt.Println(err)
+  }
+
+	wordFreq, err := calcWordFreq(trainingData1, trainingData2)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = createBagOfWords("bag_of_words.txt", wordFreq, 1000)
+	err = createBagOfWords("bag_of_words.txt", wordFreq, 5, 1000, stopWords, emoticons)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -271,9 +459,13 @@ func main() {
 	}
 
 	// We will use the words from the bagofWords as our features
-	for _, val := range trainingData {
+	for _, val := range trainingData1 {
 		problem.Add(gosvm.TrainingInstance{float64(val.i), gosvm.FromDenseVector(tokenize(bagOfWords, val.s))})
 	}
+
+  for _, val := range trainingData2 {
+    problem.Add(gosvm.TrainingInstance{float64(val.i), gosvm.FromDenseVector(tokenize(bagOfWords, val.s))})
+  }
 
 	param := gosvm.DefaultParameters()
 	param.Kernel = gosvm.NewLinearKernel()
@@ -284,9 +476,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+  elapsed := time.Now().Sub(start)
+  fmt.Println(elapsed)
+  fmt.Println("Training finished!")
+
 	// test the model
-  //testData, err := loadDataSet("2014_a_dev.txt", 4, 5)
-	testData, err := loadDataSet("2014_b_dev.txt", 2, 3)
+	testData, err := loadTestDataSet("2014_b_test_gold.txt", 2, 3)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -297,6 +492,7 @@ func main() {
 		label := model.Predict(gosvm.FromDenseVector(tokenize(bagOfWords, val.s)))
 
 		if int(label) != val.i {
+      //fmt.Println("Error in testdata at line", counter+1, ", predicted label:", label,", currect label:", val.i)
 			flailCounter++
 		}
 
