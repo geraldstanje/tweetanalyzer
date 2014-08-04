@@ -15,6 +15,8 @@ import (
   "github.com/sridif/gosvm"
 )
 
+const create_bag_of_words = true
+
 type SvmClassifier struct {
   model *gosvm.Model
   bagOfWords Dict
@@ -258,6 +260,8 @@ func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (Pa
 func (c *SvmClassifier) createBagOfWords(bagOfWordsFile string, stopWordsFile string, freqMin int, freqMax int, trainingDataSet1 []SentimentData, trainingDataSet2 []SentimentData) error {
   var buffer bytes.Buffer
 
+  c.bagOfWords = make(Dict, 0)
+  
   stopWords, err := c.createDict(stopWordsFile)
   if err != nil {
     return err
@@ -271,13 +275,19 @@ func (c *SvmClassifier) createBagOfWords(bagOfWordsFile string, stopWordsFile st
   for _, word := range wordFreq {
     if _, ok := stopWords[word.Key]; !ok {
       if word.Value >= freqMin && word.Value <= freqMax {
-        buffer.WriteString(word.Key)
-        buffer.WriteString("\n")
+        c.bagOfWords.Add(word.Key, 1)
+
+        if create_bag_of_words {
+          buffer.WriteString(word.Key)
+          buffer.WriteString("\n")
+        }
       }
     }
   }
 
-  err = ioutil.WriteFile(bagOfWordsFile, buffer.Bytes(), 0644)
+  if create_bag_of_words {
+    err = ioutil.WriteFile(bagOfWordsFile, buffer.Bytes(), 0644)
+  }
   return err
 }
 
@@ -298,11 +308,6 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
   }
 
   err = c.createBagOfWords("bagOfWords.txt", "stop_words.txt", 5, 1000, trainingData1, trainingData2)
-  if err != nil {
-    return err
-  }
-
-  c.bagOfWords, err = c.createDict("bagOfWords.txt")
   if err != nil {
     return err
   }
