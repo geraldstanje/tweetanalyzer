@@ -257,11 +257,11 @@ func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (Pa
   return sorted, nil
 }
 
-func (c *SvmClassifier) createBagOfWords(bagOfWordsFile string, stopWordsFile string, freqMin int, freqMax int, trainingDataSet1 []SentimentData, trainingDataSet2 []SentimentData) error {
+func (c *SvmClassifier) createBagOfWords(stopWordsFile string, freqMin int, freqMax int, trainingDataSet1 []SentimentData, trainingDataSet2 []SentimentData) error {
   var buffer bytes.Buffer
 
   c.bagOfWords = make(Dict, 0)
-  
+
   stopWords, err := c.createDict(stopWordsFile)
   if err != nil {
     return err
@@ -286,7 +286,7 @@ func (c *SvmClassifier) createBagOfWords(bagOfWordsFile string, stopWordsFile st
   }
 
   if create_bag_of_words {
-    err = ioutil.WriteFile(bagOfWordsFile, buffer.Bytes(), 0644)
+    err = ioutil.WriteFile("bagOfWords.txt", buffer.Bytes(), 0644)
   }
   return err
 }
@@ -307,7 +307,7 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
     return err
   }
 
-  err = c.createBagOfWords("bagOfWords.txt", "stop_words.txt", 5, 1000, trainingData1, trainingData2)
+  err = c.createBagOfWords("stop_words.txt", 5, 1000, trainingData1, trainingData2)
   if err != nil {
     return err
   }
