@@ -15,7 +15,7 @@ import (
   "github.com/sridif/gosvm"
 )
 
-const create_bag_of_words = true
+const create_bag_of_words_outputfile = true
 
 type SvmClassifier struct {
   model *gosvm.Model
@@ -277,7 +277,7 @@ func (c *SvmClassifier) createBagOfWords(stopWordsFile string, freqMin int, freq
       if word.Value >= freqMin && word.Value <= freqMax {
         c.bagOfWords.Add(word.Key, 1)
 
-        if create_bag_of_words {
+        if create_bag_of_words_outputfile {
           buffer.WriteString(word.Key)
           buffer.WriteString("\n")
         }
@@ -285,7 +285,7 @@ func (c *SvmClassifier) createBagOfWords(stopWordsFile string, freqMin int, freq
     }
   }
 
-  if create_bag_of_words {
+  if create_bag_of_words_outputfile {
     err = ioutil.WriteFile("bagOfWords.txt", buffer.Bytes(), 0644)
   }
   return err
