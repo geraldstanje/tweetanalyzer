@@ -291,7 +291,7 @@ func (c *SvmClassifier) createBagOfWords(stopWordsFile string, freqMin int, freq
   return err
 }
 
-func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFile2 string) (error) {
+func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFile2 string, stopWordsFile string) (error) {
   // Perform training
   fmt.Println("Start Training")
   start := time.Now()
@@ -307,7 +307,7 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
     return err
   }
 
-  err = c.createBagOfWords("stop_words.txt", 5, 1000, trainingData1, trainingData2)
+  err = c.createBagOfWords(stopWordsFile, 5, 1000, trainingData1, trainingData2)
   if err != nil {
     return err
   }
