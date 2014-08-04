@@ -6,28 +6,59 @@ import (
   "os"
   "bufio"
   "strings"
+  "regexp"
+  "time"
+  "io/ioutil"
+  "sort"
+  "bytes"
   "github.com/reiver/go-porterstemmer"
   "github.com/sridif/gosvm"
 )
 
 type SvmClassifier struct {
-  model *svm.Model
+  model *gosvm.Model
+  bagOfWords Dict
 }
 
 type SentimentData struct {
-  i int    // label: negative == -1, neutral == 0, positive == 1
-  s string // text
+  sentimentLabel int // negative == -1, neutral == 0, positive == 1
+  text string
 }
 
-type SliceSet map[string]int
+type Dict map[string]int
 
-func (s SliceSet) Add(key string, value int) {
+// A slice of Pairs that implements sort.Interface to sort by Value.
+type PairList []Pair
+
+// A data structure to hold a key/value pair.
+type Pair struct {
+  Key   string
+  Value int
+}
+
+func (s Dict) Add(key string, value int) {
   s[key] = value
 }
 
-func (s SliceSet) Peek(key string) (int, bool) {
+func (s Dict) Peek(key string) (int, bool) {
   ret, ok := s[key]
   return ret, ok
+}
+
+func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p PairList) Len() int           { return len(p) }
+func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+
+// A function to turn a map into a PairList, then sort and return it.
+func sortMapByValue(m Dict) PairList {
+  p := make(PairList, len(m))
+  i := 0
+  for k, v := range m {
+    p[i] = Pair{k, v}
+    i++
+  }
+  sort.Sort(p)
+  return p
 }
 
 func strcmp(a, b string) int {
@@ -45,11 +76,7 @@ func strcmp(a, b string) int {
   return diff
 }
 
-func NewSvmClassifier() *SvmClassifier {
-  return &SvmClassifier{}
-}
-
-func (c *SvmClassifier) CreateFeatureVector(text string) ([]float64) {
+func (c *SvmClassifier) createFeatureVector(text string) ([]float64) {
   featureVec := make([]float64, len(c.bagOfWords))
 
   tokenizer := NewTokenizer()
@@ -165,8 +192,8 @@ func (c *SvmClassifier) loadTestDataSet(filename string, index1 int, index2 int)
   return dict, err
 }
 
-func (c *SvmClassifier) createDict(filename string) (SliceSet, error) {
-  dict := make(SliceSet)
+func (c *SvmClassifier) createDict(filename string) (Dict, error) {
+  dict := make(Dict)
   counter := 0
 
   f, err := os.Open(filename)
@@ -194,13 +221,14 @@ func (c *SvmClassifier) createDict(filename string) (SliceSet, error) {
   return dict, err
 }
 
-func (c *SvmClassifier) calcWordFreq(s1 []SliceData, s2 []SliceData) (PairList, error) {
-  dict := make(map[string]int)
-  var sorted PairList
+func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (PairList, error) {
+  var myExp = regexp.MustCompile(`([A-Za-z]+)`)
+
+  dict := make(Dict, 0)
 
   for _, sentence := range s1 {
-    sentence.s = strings.ToLower(sentence.s)
-    words := myExp.FindAllString(sentence.s, -1)
+    sentence.text = strings.ToLower(sentence.text)
+    words := myExp.FindAllString(sentence.text, -1)
 
     for _, w := range words {
       stemmed := porterstemmer.StemString(w)
@@ -210,9 +238,9 @@ func (c *SvmClassifier) calcWordFreq(s1 []SliceData, s2 []SliceData) (PairList, 
     }
   }
 
-for _, sentence := range s2 {
-    sentence.s = strings.ToLower(sentence.s)
-    words := myExp.FindAllString(sentence.s, -1)
+  for _, sentence := range s2 {
+    sentence.text = strings.ToLower(sentence.text)
+    words := myExp.FindAllString(sentence.text, -1)
 
     for _, w := range words {
       stemmed := porterstemmer.StemString(w)
@@ -222,15 +250,20 @@ for _, sentence := range s2 {
     }
   }
 
-  sorted = sortMapByValue(dict)
+  sorted := sortMapByValue(dict)
 
   return sorted, nil
 }
 
-func (c *SvmClassifier) createBagOfWords(filename string, freqMin int, freqMax int, stopWordsfilename string, trainingDataSet1 []SliceData, trainingDataSet2 []SliceData) error {
+func (c *SvmClassifier) createBagOfWords(bagOfWordsFile string, stopWordsFile string, freqMin int, freqMax int, trainingDataSet1 []SentimentData, trainingDataSet2 []SentimentData) error {
   var buffer bytes.Buffer
 
-  calcWordFreq, err := c.calcWordFreq(trainingDataSet1, trainingDataSet2)
+  stopWords, err := c.createDict(stopWordsFile)
+  if err != nil {
+    return err
+  }
+
+  wordFreq, err := c.calcWordFreq(trainingDataSet1, trainingDataSet2)
   if err != nil {
     return err
   }
@@ -244,12 +277,8 @@ func (c *SvmClassifier) createBagOfWords(filename string, freqMin int, freqMax i
     }
   }
 
-  err := ioutil.WriteFile(filename, buffer.Bytes(), 0644)
+  err = ioutil.WriteFile(bagOfWordsFile, buffer.Bytes(), 0644)
   return err
-}
-
-func (c *SvmClassifier) loadBagOfWords(filename string) (SliceSet, error) {
-  
 }
 
 func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFile2 string) (error) {
@@ -268,28 +297,37 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
     return err
   }
 
+  err = c.createBagOfWords("bagOfWords.txt", "stop_words.txt", 5, 1000, trainingData1, trainingData2)
+  if err != nil {
+    return err
+  }
+
+  c.bagOfWords, err = c.createDict("bagOfWords.txt")
+  if err != nil {
+    return err
+  }
+
   problem := gosvm.NewProblem()
 
   // We will use the words from the bagofWords as our features
   for _, val := range trainingData1 {
-    problem.Add(gosvm.TrainingInstance{float64(val.i), gosvm.FromDenseVector(tokenize(bagOfWords, val.s))})
+    problem.Add(gosvm.TrainingInstance{float64(val.sentimentLabel), gosvm.FromDenseVector(c.createFeatureVector(val.text))})
   }
 
   for _, val := range trainingData2 {
-    problem.Add(gosvm.TrainingInstance{float64(val.i), gosvm.FromDenseVector(tokenize(bagOfWords, val.s))})
+    problem.Add(gosvm.TrainingInstance{float64(val.sentimentLabel), gosvm.FromDenseVector(c.createFeatureVector(val.text))})
   }
 
   param := gosvm.DefaultParameters()
   param.Kernel = gosvm.NewLinearKernel()
   param.SVMType = gosvm.NewCSVC(0.05)
   c.model, err = gosvm.TrainModel(param, problem)
-  if err != nil {
-    log.Fatal(err)
-  }
 
   elapsed := time.Now().Sub(start)
   fmt.Println(elapsed)
   fmt.Println("Training finished!")
+
+  return err
 }
 
 func (c *SvmClassifier) TestClassifier(testDataSetFile string) (error) {
@@ -306,9 +344,9 @@ func (c *SvmClassifier) TestClassifier(testDataSetFile string) (error) {
   counter := 0
 
   for _, val := range testData {
-    label := c.model.Predict(gosvm.FromDenseVector(tokenize(c.bagOfWords, val.s)))
+    label := c.model.Predict(gosvm.FromDenseVector(c.createFeatureVector(val.text)))
 
-    if int(label) != val.i {
+    if int(label) != val.sentimentLabel {
       flailCounter++
     }
 
@@ -321,4 +359,10 @@ func (c *SvmClassifier) TestClassifier(testDataSetFile string) (error) {
   elapsed := time.Now().Sub(start)
   fmt.Println(elapsed)
   fmt.Println("Test finished!")
+
+  return nil
+}
+
+func NewSvmClassifier() *SvmClassifier {
+  return &SvmClassifier{}
 }
