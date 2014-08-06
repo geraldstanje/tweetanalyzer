@@ -20,6 +20,7 @@ const create_bag_of_words_outputfile = true
 type SvmClassifier struct {
   model *gosvm.Model
   bagOfWords Dict
+  spellCorrect *SpellCorrect
 }
 
 type SentimentData struct {
@@ -78,6 +79,27 @@ func strcmp(a, b string) int {
   return diff
 }
 
+func createBigrams(s string) []string {
+  i := 0
+  j := strings.Index(s, " ")
+  if j < 0 {
+    return nil
+  }
+  j += 1
+  var result []string
+  for {
+    k := strings.Index(s[j:], " ")
+    if k < 0 {
+      result = append(result, s[i:])
+      break
+    }
+    result = append(result, s[i:j+k])
+    i = j
+    j += k + 1
+  }
+  return result
+}
+
 func (c *SvmClassifier) createFeatureVector(text string) ([]float64) {
   featureVec := make([]float64, len(c.bagOfWords))
 
@@ -85,6 +107,7 @@ func (c *SvmClassifier) createFeatureVector(text string) ([]float64) {
   tokens := tokenizer.Tokenize(text)
 
   for _, str := range tokens {
+    //str = c.spellCorrect.correct(str)
     stemmed := porterstemmer.StemString(str)
 
     if val, ok := c.bagOfWords[stemmed]; ok {
@@ -233,9 +256,19 @@ func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (Pa
     words := myExp.FindAllString(sentence.text, -1)
 
     for _, w := range words {
+      //w = c.spellCorrect.correct(w)
+
       stemmed := porterstemmer.StemString(w)
       if len(stemmed) > 1 {
         dict[stemmed] = dict[stemmed] + 1
+      }
+    }
+
+    bigrams := createBigrams(sentence.text)
+
+    for _, w := range bigrams {
+      if len(w) > 1 {
+        dict[w] = dict[w] + 1
       }
     }
   }
@@ -245,9 +278,19 @@ func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (Pa
     words := myExp.FindAllString(sentence.text, -1)
 
     for _, w := range words {
+      //w = c.spellCorrect.correct(w)
+
       stemmed := porterstemmer.StemString(w)
       if len(stemmed) > 1 {
         dict[stemmed] = dict[stemmed] + 1
+      }
+    }
+
+    bigrams := createBigrams(sentence.text)
+
+    for _, w := range bigrams {
+      if len(w) > 1 {
+        dict[w] = dict[w] + 1
       }
     }
   }
@@ -275,7 +318,7 @@ func (c *SvmClassifier) createBagOfWords(stopWordsFile string, freqMin int, freq
   for _, word := range wordFreq {
     if _, ok := stopWords[word.Key]; !ok {
       if word.Value >= freqMin && word.Value <= freqMax {
-        c.bagOfWords.Add(word.Key, 1)
+        c.bagOfWords.Add(word.Key, word.Value)
 
         if create_bag_of_words_outputfile {
           buffer.WriteString(word.Key)
@@ -314,7 +357,7 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
 
   problem := gosvm.NewProblem()
 
-  // We will use the words from the bagofWords as our features
+  // We use all features from the bagofWords
   for _, val := range trainingData1 {
     problem.Add(gosvm.TrainingInstance{float64(val.sentimentLabel), gosvm.FromDenseVector(c.createFeatureVector(val.text))})
   }
@@ -369,5 +412,7 @@ func (c *SvmClassifier) TestClassifier(testDataSetFile string) (error) {
 }
 
 func NewSvmClassifier() *SvmClassifier {
-  return &SvmClassifier{}
+  spellCorrect := NewSpellCorrect() // handle error in case big.txt does not exist
+
+  return &SvmClassifier{spellCorrect: spellCorrect}
 }
