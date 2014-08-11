@@ -9,13 +9,12 @@ import (
   "regexp"
   "time"
   "io/ioutil"
-  "sort"
   "bytes"
   "github.com/reiver/go-porterstemmer"
   "github.com/sridif/gosvm"
 )
 
-const create_bag_of_words_outputfile = true
+const debug_output_bag_of_words = true
 
 type SvmClassifier struct {
   model *gosvm.Model
@@ -26,78 +25,6 @@ type SvmClassifier struct {
 type SentimentData struct {
   sentimentLabel int // negative == -1, neutral == 0, positive == 1
   text string
-}
-
-type Dict map[string]int
-
-// A slice of Pairs that implements sort.Interface to sort by Value.
-type PairList []Pair
-
-// A data structure to hold a key/value pair.
-type Pair struct {
-  Key   string
-  Value int
-}
-
-func (s Dict) Add(key string, value int) {
-  s[key] = value
-}
-
-func (s Dict) Peek(key string) (int, bool) {
-  ret, ok := s[key]
-  return ret, ok
-}
-
-func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-func (p PairList) Len() int           { return len(p) }
-func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
-
-// A function to turn a map into a PairList, then sort and return it.
-func sortMapByValue(m Dict) PairList {
-  p := make(PairList, len(m))
-  i := 0
-  for k, v := range m {
-    p[i] = Pair{k, v}
-    i++
-  }
-  sort.Sort(p)
-  return p
-}
-
-func strcmp(a, b string) int {
-  min := len(b)
-  if len(a) < len(b) {
-    min = len(a)
-  }
-  diff := 0
-  for i := 0; i < min && diff == 0; i++ {
-    diff = int(a[i]) - int(b[i])
-  }
-  if diff == 0 {
-    diff = len(a) - len(b)
-  }
-  return diff
-}
-
-func createBigrams(s string) []string {
-  i := 0
-  j := strings.Index(s, " ")
-  if j < 0 {
-    return nil
-  }
-  j += 1
-  var result []string
-  for {
-    k := strings.Index(s[j:], " ")
-    if k < 0 {
-      result = append(result, s[i:])
-      break
-    }
-    result = append(result, s[i:j+k])
-    i = j
-    j += k + 1
-  }
-  return result
 }
 
 func (c *SvmClassifier) createFeatureVector(text string) ([]float64) {
@@ -115,37 +42,55 @@ func (c *SvmClassifier) createFeatureVector(text string) ([]float64) {
     }
   }
 
+  /*bigrams := createBigrams(text)
+
+  for _, w := range bigrams {
+    if len(w) > 1 {
+      if val, ok := c.bagOfWords[w]; ok {
+        featureVec[val] = featureVec[val] + 1
+      }
+    }
+  }*/
+
   return featureVec
 }
 
-func (c *SvmClassifier) addSentimentData(word []string, index1 int, index2 int) (SentimentData, error) {  
+func (c *SvmClassifier) addSentimentData(word []string, index1 int, index2 int, flag bool) (SentimentData, error) {  
   var t SentimentData
   
   sentiment := word[index1]
+  sentiment = strings.ToLower(sentiment)
 
   if (strcmp(sentiment, "positive") == 0) || 
+     (strcmp(sentiment, "extremely-positive") == 0) ||
      (strcmp(sentiment, "neutral") == 0) || 
-     (strcmp(sentiment, "negative") == 0) {
+     (strcmp(sentiment, "negative") == 0) ||
+     (strcmp(sentiment, "extremely-negative") == 0) {
     var i int
     var str string
 
-    if strcmp(sentiment, "positive") == 0 {
+    if strcmp(sentiment, "positive") == 0 || strcmp(sentiment, "extremely-positive") == 0 {
       i = 1
     } else if strcmp(sentiment, "negative") == 0 {
       i = -1
-    } else if strcmp(sentiment, "neutral") == 0 {
+    } else if strcmp(sentiment, "neutral") == 0 || strcmp(sentiment, "extremely-negative") == 0 {
       i = 0
     }
 
     str = word[index2]
-    t = SentimentData{i, str[0:len(str)-1]}
-    return t, nil
+    if !flag {
+      t = SentimentData{i, str[0:len(str)-1]}
+      return t, nil
+    } else {
+      t = SentimentData{i, str}
+      return t, nil
+    }
   }
 
   return t, fmt.Errorf("Error: incorrect SentimentData format")
 }
 
-func (c *SvmClassifier) loadTrainDataSet(filename string, index1 int, index2 int) ([]SentimentData, error) {
+func (c *SvmClassifier) loadTrainDataSet(filename string, index1 int, index2 int, flag bool) ([]SentimentData, error) {
   dict := make([]SentimentData, 0)
 
   f, err := os.Open(filename)
@@ -169,7 +114,7 @@ func (c *SvmClassifier) loadTrainDataSet(filename string, index1 int, index2 int
       word := strings.Split(s, "\t")
 
       if len(word) > 1 {
-        t, err := c.addSentimentData(word, index1, index2)
+        t, err := c.addSentimentData(word, index1, index2, flag)
         if err != nil {
           return nil, err
         }
@@ -205,7 +150,7 @@ func (c *SvmClassifier) loadTestDataSet(filename string, index1 int, index2 int)
       word := strings.Split(s, "\t")
 
       if len(word) > 1 && strings.HasPrefix(word[0], "twitter") {
-        t, err := c.addSentimentData(word, index1, index2)
+        t, err := c.addSentimentData(word, index1, index2, false)
         if err != nil {
           return nil, err
         }
@@ -246,10 +191,9 @@ func (c *SvmClassifier) createDict(filename string) (Dict, error) {
   return dict, err
 }
 
-func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (PairList, error) {
+func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (Dict, error) {
+  dict := make(Dict)
   var myExp = regexp.MustCompile(`([A-Za-z]+)`)
-
-  dict := make(Dict, 0)
 
   for _, sentence := range s1 {
     sentence.text = strings.ToLower(sentence.text)
@@ -264,13 +208,13 @@ func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (Pa
       }
     }
 
-    bigrams := createBigrams(sentence.text)
+    /*bigrams := createBigrams(sentence.text)
 
     for _, w := range bigrams {
       if len(w) > 1 {
         dict[w] = dict[w] + 1
       }
-    }
+    }*/
   }
 
   for _, sentence := range s2 {
@@ -286,21 +230,21 @@ func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (Pa
       }
     }
 
-    bigrams := createBigrams(sentence.text)
+    /*bigrams := createBigrams(sentence.text)
 
     for _, w := range bigrams {
       if len(w) > 1 {
         dict[w] = dict[w] + 1
       }
-    }
+    }*/
   }
 
-  sorted := sortMapByValue(dict)
+  SortMapByValue(&dict)
 
-  return sorted, nil
+  return dict, nil
 }
 
-func (c *SvmClassifier) createBagOfWords(stopWordsFile string, freqMin int, freqMax int, trainingDataSet1 []SentimentData, trainingDataSet2 []SentimentData) error {
+func (c *SvmClassifier) createBagOfWords(stopWordsFile string, freqMin int, freqMax int, trainingDataSet1 []SentimentData, trainingDataSet2 []SentimentData, emoticons []SentimentData) error {
   var buffer bytes.Buffer
 
   c.bagOfWords = make(Dict, 0)
@@ -315,42 +259,53 @@ func (c *SvmClassifier) createBagOfWords(stopWordsFile string, freqMin int, freq
     return err
   }
 
-  for _, word := range wordFreq {
-    if _, ok := stopWords[word.Key]; !ok {
-      if word.Value >= freqMin && word.Value <= freqMax {
-        c.bagOfWords.Add(word.Key, word.Value)
-
-        if create_bag_of_words_outputfile {
-          buffer.WriteString(word.Key)
-          buffer.WriteString("\n")
-        }
+  for key, value := range wordFreq {
+    if _, ok := stopWords[key]; !ok {
+      if value >= freqMin && value <= freqMax {
+        c.bagOfWords.Add(key, value)
       }
     }
   }
 
-  if create_bag_of_words_outputfile {
+  //for _, word := range emoticons {
+    //c.bagOfWords.Add(word.text, 1)
+  //}
+
+  if debug_output_bag_of_words {
+    for word, _ := range c.bagOfWords {
+      buffer.WriteString(word)
+      buffer.WriteString("\n")
+    }
+  }
+
+  if debug_output_bag_of_words {
     err = ioutil.WriteFile("bagOfWords.txt", buffer.Bytes(), 0644)
   }
   return err
 }
 
-func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFile2 string, stopWordsFile string) (error) {
+func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFile2 string, stopWordsFile string, emonticonsFile string) (error) {
   // Perform training
   fmt.Println("Start Training")
   start := time.Now()
 
   // train the model
-  trainingData1, err := c.loadTrainDataSet(trainDataSetFile1, 2, 3)
+  trainingData1, err := c.loadTrainDataSet(trainDataSetFile1, 2, 3, false)
   if err != nil {
     return err
   }
 
-  trainingData2, err := c.loadTrainDataSet(trainDataSetFile2, 2, 3)
+  trainingData2, err := c.loadTrainDataSet(trainDataSetFile2, 2, 3, false)
   if err != nil {
     return err
   }
 
-  err = c.createBagOfWords(stopWordsFile, 5, 1000, trainingData1, trainingData2)
+  emoticons, err := c.loadTrainDataSet(emonticonsFile, 1, 0, true)
+  if err != nil {
+    return err
+  }
+
+  err = c.createBagOfWords(stopWordsFile, 5, 1000, trainingData1, trainingData2, emoticons)
   if err != nil {
     return err
   }
