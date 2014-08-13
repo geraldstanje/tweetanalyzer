@@ -7,11 +7,11 @@ import (
 
 func TestTokenize(t *testing.T) {
   tokenizer := NewTokenizer()
-  text := "Gas by my house hit $3.39!!!! I'm going to Chapel Hill on Sat. :)"
+  text := "The quick brown fox was jumping over the 2 lazy dogs #crazyfox @thedog http://fox.com :)"
   tokens := tokenizer.Tokenize(text)
-  
+
   x := fmt.Sprintf("%v", tokens)
-  if x != `[gas by my house hit im going to chapel hill on sat :)]` {
+  if x != `[the quick brown fox was jumping over the lazy dogs crazyfox AT_USER URL __h__]` {
     t.Fatal(x)
   }
 }
