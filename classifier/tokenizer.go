@@ -18,8 +18,6 @@ const userToken = "__user__"
 const hashtagToken = "__hashtag__"
 const urlToken = "__url__"
 
-//const acronymToken = "__acronym__"
-
 type myRegexp struct {
 	url           *regexp.Regexp
 	user          *regexp.Regexp
@@ -33,19 +31,38 @@ type Tokenizer struct {
 	stopWords      Dict
 	happyEmoticons map[string]bool
 	sadEmoticons   map[string]bool
-	//acronyms       map[string]bool
-	myRegexp myRegexp
+	negationsWords map[string]string
+	myRegexp       myRegexp
 }
 
 func NewTokenizer() (*Tokenizer, error) {
 	happy := `:-) :) ;) :o) :] :3 :c) :> =] 8) =) :} :^) :-d :d 8-d 8d x-d xd =-d =d =-3 =3 :-)) :'-) :') :* :^* >:p :-p x-p xp :p =p :-b :b >:) >;) >:-) <3 ;-) ;) ;-] ;] ;d ;^) >;) |;-)`
 	sad := `>:[ :-( :( :-c :c :-< :< :-[ :[ :{ ;( :-|| :@ >:( :'-( :'( >:\\ >:/ :-/ :-. :\\ =/ =\\ :L =L :S >.< d; :-(( :(( ;-(( ;((`
-	//acronym := `gr8t rotf 2moro 2nite brb btw b4n bcnu bff cya dbeyr dilligas fud fwiw gr8 ily imho irl iso j/k l8r lmao lol lylas mhoty nimby np nub oic omg ot pov rbtl rotflmao rt thx tx thks sh sitd sol stby swak tfh rtm rtfm tlc tmi ttyl ttyl tyvm vbg weg wtf wywh xoxo aw`
-	// http://www.netlingo.com/top50/popular-text-terms.php
+	negations := map[string]string{
+		"don't":     "do not",
+		"doesn't":   "do not",
+		"didn't":    "do not",
+		"won't":     "will not",
+		"shouldn't": "will not",
+		"wouldn't":  "will not",
+		"isn't":     "is not",
+		"aren't":    "is not",
+		"wasn't":    "is not",
+		"weren't":   "is not",
+		"ain't":     "is not",
+		"couldn't":  "can not",
+		"can't":     "can not",
+		"haven't":   "has not",
+		"hasn't":    "has not",
+		"hadn't":    "has not",
+		"shan't":    "shall not",
+		"mightn't":  "shall not",
+		"mustn't":   "shall not",
+		"mayn't":    "may not",
+	}
 
 	happyEmoticons := createMap(happy)
 	sadEmoticons := createMap(sad)
-	//acronyms := createMap(acronym)
 
 	url := regexp.MustCompile(`((www\.[^\s]+)|(https?://[^\s]+))`)
 	user := regexp.MustCompile(`@[^\s]+`)
@@ -54,7 +71,7 @@ func NewTokenizer() (*Tokenizer, error) {
 	removeWhitesp := regexp.MustCompile(`[\s]+`)
 	regexp := myRegexp{url: url, user: user, hashtag: hashtag, removeSpChars: removeSpChars, removeWhitesp: removeWhitesp}
 
-	stopWords, err := createDict("data/stop_words.txt") // http://www.webconfs.com/stop-words.php
+	stopWords, err := createDict("data/stop_words.txt")
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +80,7 @@ func NewTokenizer() (*Tokenizer, error) {
 	spellCorrect.Train(fuzzy.SampleEnglish())
 	spellCorrect.Threshold = 3
 
-	return &Tokenizer{spellCorrect: spellCorrect, stopWords: stopWords, happyEmoticons: happyEmoticons, sadEmoticons: sadEmoticons, myRegexp: regexp}, err
+	return &Tokenizer{spellCorrect: spellCorrect, stopWords: stopWords, happyEmoticons: happyEmoticons, sadEmoticons: sadEmoticons, negationsWords: negations, myRegexp: regexp}, err
 }
 
 func createDict(filename string) (Dict, error) {
@@ -141,10 +158,10 @@ func (t *Tokenizer) normalizeTokens(text *string) {
 	for candidate := range t.sadEmoticons {
 		*text = strings.Replace(*text, candidate, " "+sadToken+" ", -1)
 	}
-	// Normalize acronyms
-	//for candidate := range t.acronyms {
-	//	*text = strings.Replace(*text, candidate, " "+acronymToken+" ", -1)
-	//}
+	// Normalize negations
+	for negation, candidate := range t.negationsWords {
+		*text = strings.Replace(*text, candidate, negation, -1)
+	}
 }
 
 func (t *Tokenizer) Tokenize(text string) []string {

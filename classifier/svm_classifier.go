@@ -219,7 +219,7 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
 		return err
 	}
 
-	err = c.createBagOfWords(5, 1000, trainingData1, trainingData2)
+	err = c.createBagOfWords(5, 850, trainingData1, trainingData2)
 	if err != nil {
 		return err
 	}
@@ -237,7 +237,7 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
 
 	param := gosvm.DefaultParameters()
 	param.Kernel = gosvm.NewLinearKernel()
-	param.SVMType = gosvm.NewCSVC(0.05)
+	param.SVMType = gosvm.NewCSVC(0.06)
 	c.model, err = gosvm.TrainModel(param, problem)
 
 	elapsed := time.Now().Sub(start)
