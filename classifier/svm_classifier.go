@@ -219,7 +219,7 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
 		return err
 	}
 
-	err = c.createBagOfWords(5, 850, trainingData1, trainingData2)
+	err = c.createBagOfWords(5, 1000, trainingData1, trainingData2)
 	if err != nil {
 		return err
 	}

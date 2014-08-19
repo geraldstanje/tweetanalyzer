@@ -38,6 +38,8 @@ type Tokenizer struct {
 func NewTokenizer() (*Tokenizer, error) {
 	happy := `:-) :) ;) :o) :] :3 :c) :> =] 8) =) :} :^) :-d :d 8-d 8d x-d xd =-d =d =-3 =3 :-)) :'-) :') :* :^* >:p :-p x-p xp :p =p :-b :b >:) >;) >:-) <3 ;-) ;) ;-] ;] ;d ;^) >;) |;-)`
 	sad := `>:[ :-( :( :-c :c :-< :< :-[ :[ :{ ;( :-|| :@ >:( :'-( :'( >:\\ >:/ :-/ :-. :\\ =/ =\\ :L =L :S >.< d; :-(( :(( ;-(( ;((`
+	// http://sentiment.christopherpotts.net/lingstruc.html#negation
+	// improvement
 	negations := map[string]string{
 		"don't":     "do not",
 		"doesn't":   "do not",
