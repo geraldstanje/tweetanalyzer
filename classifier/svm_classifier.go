@@ -237,7 +237,7 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
 
 	param := gosvm.DefaultParameters()
 	param.Kernel = gosvm.NewLinearKernel()
-	param.SVMType = gosvm.NewCSVC(0.06)
+	param.SVMType = gosvm.NewCSVC(0.1)
 	c.model, err = gosvm.TrainModel(param, problem)
 
 	elapsed := time.Now().Sub(start)
