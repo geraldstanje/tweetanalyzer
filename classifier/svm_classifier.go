@@ -239,12 +239,29 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
 	param.Kernel = gosvm.NewLinearKernel()
 	param.SVMType = gosvm.NewCSVC(0.1)
 	c.model, err = gosvm.TrainModel(param, problem)
+  if err != nil {
+    return err
+  }
 
 	elapsed := time.Now().Sub(start)
 	fmt.Println(elapsed)
 	fmt.Println("Training finished!")
 
+  err = c.model.Save("svm_model")
+  fmt.Println("Svm model saved!")
 	return err
+}
+
+func (c *SvmClassifier) LoadClassifier(filename string) error {
+  var err error
+
+  c.model, err = gosvm.LoadModel(filename)
+  return err
+}
+
+func (c *SvmClassifier) ClassifyTweet(tweet string) float64 {
+  label := c.model.Predict(gosvm.FromDenseVector(c.createFeatureVector(tweet)))
+  return label
 }
 
 func (c *SvmClassifier) TestClassifier(testDataSetFile string) error {
