@@ -3,6 +3,7 @@ package classifier
 import (
 	"sort"
 	"strings"
+  "strconv"
 )
 
 type Dict map[string]int
@@ -23,6 +24,11 @@ func (s Dict) Add(key string, value int) {
 func (s Dict) Peek(key string) (int, bool) {
 	ret, ok := s[key]
 	return ret, ok
+}
+
+func stringToInt(str string) int {
+  intVal, _ := strconv.ParseInt(str, 0, 64)
+  return int(intVal)
 }
 
 func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
