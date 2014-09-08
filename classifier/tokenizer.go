@@ -3,7 +3,7 @@ package classifier
 import (
 	"bufio"
 	"fmt"
-	"github.com/reiver/go-porterstemmer"
+	//"github.com/reiver/go-porterstemmer"
 	"github.com/sajari/fuzzy"
 	"io"
 	"os"
@@ -39,7 +39,6 @@ func NewTokenizer() (*Tokenizer, error) {
 	happy := `:-) :) ;) :o) :] :3 :c) :> =] 8) =) :} :^) :-d :d 8-d 8d x-d xd =-d =d =-3 =3 :-)) :'-) :') :* :^* >:p :-p x-p xp :p =p :-b :b >:) >;) >:-) <3 ;-) ;) ;-] ;] ;d ;^) >;) |;-)`
 	sad := `>:[ :-( :( :-c :c :-< :< :-[ :[ :{ ;( :-|| :@ >:( :'-( :'( >:\\ >:/ :-/ :-. :\\ =/ =\\ :L =L :S >.< d; :-(( :(( ;-(( ;((`
 	// http://sentiment.christopherpotts.net/lingstruc.html#negation
-	// improvement
 	negations := map[string]string{
 		"don't":     "do not",
 		"doesn't":   "do not",
@@ -197,8 +196,9 @@ func (t *Tokenizer) Tokenize(text string) []string {
 			token = t.spellCorrect.SpellCheck(token)
 
 			if _, ok := t.stopWords[token]; !ok {
-				stemmed := porterstemmer.StemString(token)
-				acceptedTokens = append(acceptedTokens, stemmed)
+				//stemmed := porterstemmer.StemString(token)
+				
+        acceptedTokens = append(acceptedTokens, token)
 			}
 		}
 	}
