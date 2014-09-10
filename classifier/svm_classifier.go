@@ -15,13 +15,13 @@ import (
 const dump_bag_of_words_to_file = true
 
 type SvmClassifier struct {
-	tokenizer  *Tokenizer
-	model      *gosvm.Model
-	bagOfWords Dict
-  AfinnLexicon Dict
-  BingLiuLexicon Dict
-  MpqaLexicon Dict
-  NrcEmotionLexicon Dict
+	tokenizer         *Tokenizer
+	model             *gosvm.Model
+	bagOfWords        Dict
+	AfinnLexicon      Dict
+	BingLiuLexicon    Dict
+	MpqaLexicon       Dict
+	NrcEmotionLexicon Dict
 }
 
 type SentimentData struct {
@@ -31,235 +31,236 @@ type SentimentData struct {
 
 // ~2,500 words
 func loadAfinnLexicon(filename string) (Dict, error) {
-  dict := make(Dict)
+	dict := make(Dict)
 
-  f, err := os.Open(filename)
-  if err != nil {
-    fmt.Println("error opening file ", err)
-    return dict, err
-  }
-  defer f.Close()
-  r := bufio.NewReader(f)
-  for {
-    s, err := r.ReadString('\n')
-    if err == io.EOF {
-      // do something here
-      break
-    } else if err != nil {
-      return dict, err // if you return error
-    } else {
-      s = s[0 : len(s)-1] // remove '\n'
-      s = strings.ToLower(s)
+	f, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("error opening file ", err)
+		return dict, err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+	for {
+		s, err := r.ReadString('\n')
+		if err == io.EOF {
+			// do something here
+			break
+		} else if err != nil {
+			return dict, err // if you return error
+		} else {
+			s = s[0 : len(s)-1] // remove '\n'
+			s = strings.ToLower(s)
 
-      word := strings.Split(s, "\t")
+			word := strings.Split(s, "\t")
 
-      if (len(word) == 2) {
-        dict.Add(word[0], stringToInt(word[1]))
-      }
-    }
-  }
+			if len(word) == 2 {
+				dict.Add(word[0], stringToInt(word[1]))
+			}
+		}
+	}
 
-  return dict, err
+	return dict, err
 }
 
 // ~6,800 words
 func loadBingLiuLexicon(filename1 string, filename2 string) (Dict, error) {
-  dict := make(Dict)
+	dict := make(Dict)
 
-  f1, err := os.Open(filename1)
-  if err != nil {
-    fmt.Println("error opening file ", err)
-    return dict, err
-  }
-  f2, err := os.Open(filename2)
-  if err != nil {
-    fmt.Println("error opening file ", err)
-    return dict, err
-  }
-  defer f1.Close()
-  defer f2.Close()
-  r1 := bufio.NewReader(f1)
-  for {
-    s, err := r1.ReadString('\n')
-    if err == io.EOF {
-      // do something here
-      break
-    } else if err != nil {
-      return dict, err // if you return error
-    } else {
-      s = s[0 : len(s)-1] // remove '\n'
-      s = strings.ToLower(s)
+	f1, err := os.Open(filename1)
+	if err != nil {
+		fmt.Println("error opening file ", err)
+		return dict, err
+	}
+	f2, err := os.Open(filename2)
+	if err != nil {
+		fmt.Println("error opening file ", err)
+		return dict, err
+	}
+	defer f1.Close()
+	defer f2.Close()
+	r1 := bufio.NewReader(f1)
+	for {
+		s, err := r1.ReadString('\n')
+		if err == io.EOF {
+			// do something here
+			break
+		} else if err != nil {
+			return dict, err // if you return error
+		} else {
+			s = s[0 : len(s)-1] // remove '\n'
+			s = strings.ToLower(s)
 
-      dict.Add(s, 1)
-    }
-  }
-  r2 := bufio.NewReader(f2)
-  for {
-    s, err := r2.ReadString('\n')
-    if err == io.EOF {
-      // do something here
-      break
-    } else if err != nil {
-      return dict, err // if you return error
-    } else {
-      s = s[0 : len(s)-1] // remove '\n'
-      s = strings.ToLower(s)
+			dict.Add(s, 1)
+		}
+	}
+	r2 := bufio.NewReader(f2)
+	for {
+		s, err := r2.ReadString('\n')
+		if err == io.EOF {
+			// do something here
+			break
+		} else if err != nil {
+			return dict, err // if you return error
+		} else {
+			s = s[0 : len(s)-1] // remove '\n'
+			s = strings.ToLower(s)
 
-      dict.Add(s, -1)
-    }
-  }
+			dict.Add(s, -1)
+		}
+	}
 
-  return dict, err
+	return dict, err
 }
 
 // ~8,000 words
 func loadMpqaLexicon(filename string) (Dict, error) {
-  dict := make(Dict)
+	dict := make(Dict)
 
-  f, err := os.Open(filename)
-  if err != nil {
-    fmt.Println("error opening file ", err)
-    return dict, err
-  }
-  defer f.Close()
-  r := bufio.NewReader(f)
-  for {
-    s, err := r.ReadString('\n')
-    if err == io.EOF {
-      // do something here
-      break
-    } else if err != nil {
-      return dict, err // if you return error
-    } else {
-      s = s[0 : len(s)-1] // remove '\n'
-      s = strings.ToLower(s)
+	f, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("error opening file ", err)
+		return dict, err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+	for {
+		s, err := r.ReadString('\n')
+		if err == io.EOF {
+			// do something here
+			break
+		} else if err != nil {
+			return dict, err // if you return error
+		} else {
+			s = s[0 : len(s)-1] // remove '\n'
+			s = strings.ToLower(s)
 
-      word := strings.Split(s, " ")
+			word := strings.Split(s, " ")
 
-      if (len(word) == 6) {
-        word1 := strings.Split(word[2], "=")
-        polarity := strings.Split(word[5], "=")
+			if len(word) == 6 {
+				word1 := strings.Split(word[2], "=")
+				polarity := strings.Split(word[5], "=")
 
-        if polarity[1] == "positive" {
-          dict.Add(word1[1], 1)
-        } else if polarity[1] == "negative" {
-          dict.Add(word1[1], -1)
-        }
-      }
-    }
-  }
+				if polarity[1] == "positive" {
+					dict.Add(word1[1], 1)
+				} else if polarity[1] == "negative" {
+					dict.Add(word1[1], -1)
+				}
+			}
+		}
+	}
 
-  return dict, err
+	return dict, err
 }
 
 // ~14,000 words
 func loadNrcEmotionLexicon(filename string) (Dict, error) {
-  dict := make(Dict)
+	dict := make(Dict)
 
-  f, err := os.Open(filename)
-  if err != nil {
-    fmt.Println("error opening file ", err)
-    return dict, err
-  }
-  defer f.Close()
-  r := bufio.NewReader(f)
-  for {
-    s, err := r.ReadString('\n')
-    if err == io.EOF {
-      // do something here
-      break
-    } else if err != nil {
-      return dict, err // if you return error
-    } else {
-      s = s[0 : len(s)-1] // remove '\n'
-      s = strings.ToLower(s)
+	f, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("error opening file ", err)
+		return dict, err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+	for {
+		s, err := r.ReadString('\n')
+		if err == io.EOF {
+			// do something here
+			break
+		} else if err != nil {
+			return dict, err // if you return error
+		} else {
+			s = s[0 : len(s)-1] // remove '\n'
+			s = strings.ToLower(s)
 
-      word := strings.Split(s, "\t")
+			word := strings.Split(s, "\t")
 
-      // eight emotions (anger, fear, anticipation, trust, surprise, sadness, joy, or disgust) or 
-      // one of two polarities (negative or positive).
+			// eight emotions (anger, fear, anticipation, trust, surprise, sadness, joy, or disgust) or
+			// one of two polarities (negative or positive).
 
-      if (len(word) == 3) {
-        if word[2] == "1" && word[1] == "negative" {
-          dict.Add(word[0], -1)
-        } else if word[2] == "1" && word[1] == "positive" {
-          dict.Add(word[0], 1)
-        }
-      }
-    }
-  }
-  
-  return dict, err
+			if len(word) == 3 {
+				if word[2] == "1" && word[1] == "negative" {
+					dict.Add(word[0], -1)
+				} else if word[2] == "1" && word[1] == "positive" {
+					dict.Add(word[0], 1)
+				}
+			}
+		}
+	}
+
+	return dict, err
 }
 
 const (
-  numHappyEmoticon int = iota
-  numSadEmoticon
-  numUserToken
-  numHashtags
-  numUrlTokens
-  totalScoreAfinn
-  maxPosScoreAfinn
-  maxNegScoreAfinn
-  numPosScoreAfinn
-  numNegScoreAfinn
-  totalScoreBingLiu
-  totalScoreMpqa
-  totalScoreNrcEmotion
+	numHappyEmoticon int = iota
+	numSadEmoticon
+	numUserToken
+	numHashtags
+	numUrlTokens
+	totalScoreAfinn
+	maxPosScoreAfinn
+	maxNegScoreAfinn
+	numPosScoreAfinn
+	numNegScoreAfinn
+	totalScoreBingLiu
+	totalScoreMpqa
+	totalScoreNrcEmotion
 )
 
 func (c *SvmClassifier) createFeatureVector(text string) []float64 {
-  tokens := c.tokenizer.Tokenize(text)
+	tokens := c.tokenizer.Tokenize(text)
 
-  featureVec := make([]float64, 13)
+	featureVec := make([]float64, 13)
 
-  for _, str := range tokens {
-    if c.tokenizer.IsNormalizedToken(str) {
-      if str == happyToken {
-        featureVec[numHappyEmoticon]++
-      } else if str == sadToken {
-        featureVec[numSadEmoticon]++
-      } else if str == userToken {
-        featureVec[numUserToken]++
-      } else if str == hashtagToken {
-        featureVec[numHashtags]++
-      } else if str == urlToken {
-        featureVec[numUrlTokens]++
-      }
-    } 
-    
-    if score, ok := c.AfinnLexicon[str]; ok {
-      featureVec[totalScoreAfinn] += float64(score)
+	for _, str := range tokens {
+		if c.tokenizer.IsNormalizedToken(str) {
+			switch str {
+			case happyToken:
+				featureVec[numHappyEmoticon]++
+			case sadToken:
+				featureVec[numSadEmoticon]++
+			case userToken:
+				featureVec[numUserToken]++
+			case hashtagToken:
+				featureVec[numHashtags]++
+			case urlToken:
+				featureVec[numUrlTokens]++
+			}
+		}
 
-      if score > int(featureVec[maxPosScoreAfinn]) {
-        featureVec[maxPosScoreAfinn] = float64(score)
-      } else if score < int(featureVec[maxNegScoreAfinn]){
-        featureVec[maxNegScoreAfinn] = float64(score)
-      }
-    }
+		if score, ok := c.AfinnLexicon[str]; ok {
+			featureVec[totalScoreAfinn] += float64(score)
 
-    if score2, ok := c.BingLiuLexicon[str]; ok {
-      featureVec[totalScoreBingLiu] += float64(score2)
-    }
+			if score > int(featureVec[maxPosScoreAfinn]) {
+				featureVec[maxPosScoreAfinn] = float64(score)
+			} else if score < int(featureVec[maxNegScoreAfinn]) {
+				featureVec[maxNegScoreAfinn] = float64(score)
+			}
+		}
 
-    if score3, ok := c.MpqaLexicon[str]; ok {
-      featureVec[totalScoreMpqa] += float64(score3)
-    }
+		if score2, ok := c.BingLiuLexicon[str]; ok {
+			featureVec[totalScoreBingLiu] += float64(score2)
+		}
 
-    if score4, ok := c.NrcEmotionLexicon[str]; ok {
-      featureVec[totalScoreNrcEmotion] += float64(score4)
+		if score3, ok := c.MpqaLexicon[str]; ok {
+			featureVec[totalScoreMpqa] += float64(score3)
+		}
 
-      if score4 > 0 {
-        featureVec[numPosScoreAfinn]++
-      } else {
-        featureVec[numNegScoreAfinn]++
-      }
-    }
-  }
+		if score4, ok := c.NrcEmotionLexicon[str]; ok {
+			featureVec[totalScoreNrcEmotion] += float64(score4)
 
-  fmt.Println("feature vec:", featureVec)
+			if score4 > 0 {
+				featureVec[numPosScoreAfinn]++
+			} else {
+				featureVec[numNegScoreAfinn]++
+			}
+		}
+	}
 
-  return featureVec
+	fmt.Println("feature vec:", featureVec)
+
+	return featureVec
 }
 
 func (c *SvmClassifier) addSentimentData(word []string, index1 int, index2 int) (SentimentData, error) {
@@ -372,11 +373,11 @@ func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (Di
 		tokens := c.tokenizer.Tokenize(sentence.text)
 
 		for _, token := range tokens {
-      //dict[token] = dict[token] + 1
+			//dict[token] = dict[token] + 1
 
 			if c.tokenizer.IsNormalizedToken(token) {
 				dict[token] = dict[token] + 1
-        //dict[token] = 100
+				//dict[token] = 100
 			} /*else if len(token) > 1 {
 				dict[token] = dict[token] + 1
 			}*/
@@ -387,11 +388,11 @@ func (c *SvmClassifier) calcWordFreq(s1 []SentimentData, s2 []SentimentData) (Di
 		tokens := c.tokenizer.Tokenize(sentence.text)
 
 		for _, token := range tokens {
-      //dict[token] = dict[token] + 1
+			//dict[token] = dict[token] + 1
 
 			if c.tokenizer.IsNormalizedToken(token) {
 				dict[token] = dict[token] + 1
-        //dict[token] = 100
+				//dict[token] = 100
 			} /*else if len(token) > 1 {
 				dict[token] = dict[token] + 1
 			}*/
@@ -414,8 +415,8 @@ func (c *SvmClassifier) createBagOfWords(freqMin int, freqMax int, trainingDataS
 	counter := 0
 	for key, _ := range wordFreq {
 		//if value >= freqMin && value <= freqMax {
-			c.bagOfWords.Add(key, counter)
-			counter++
+		c.bagOfWords.Add(key, counter)
+		counter++
 		//}
 	}
 
@@ -484,21 +485,21 @@ func (c *SvmClassifier) TrainClassifier(trainDataSetFile1 string, trainDataSetFi
 func (c *SvmClassifier) LoadClassifier(trainDataSetFile1 string, trainDataSetFile2 string, svmModelFile string) error {
 	var err error
 
-  // the following code create the bag of words
-  trainingData1, err := c.loadTrainDataSet(trainDataSetFile1, 2, 3)
-  if err != nil {
-    return err
-  }
+	// the following code create the bag of words
+	trainingData1, err := c.loadTrainDataSet(trainDataSetFile1, 2, 3)
+	if err != nil {
+		return err
+	}
 
-  trainingData2, err := c.loadTrainDataSet(trainDataSetFile2, 2, 3)
-  if err != nil {
-    return err
-  }
+	trainingData2, err := c.loadTrainDataSet(trainDataSetFile2, 2, 3)
+	if err != nil {
+		return err
+	}
 
-  err = c.createBagOfWords(5, 800, trainingData1, trainingData2)
-  if err != nil {
-    return err
-  }
+	err = c.createBagOfWords(5, 800, trainingData1, trainingData2)
+	if err != nil {
+		return err
+	}
 
 	c.model, err = gosvm.LoadModel(svmModelFile)
 	return err
@@ -547,26 +548,26 @@ func NewSvmClassifier() (*SvmClassifier, error) {
 	if err != nil {
 		return nil, err
 	}
-  
-  AfinnLexicon, err := loadAfinnLexicon("data/AFINN-111.txt")
-  if err != nil {
-    return nil, err
-  }
 
-  BingLiuLexicon, err := loadBingLiuLexicon("data/positive-words.txt", "data/negative-words.txt")
-  if err != nil {
-    return nil, err
-  }
+	AfinnLexicon, err := loadAfinnLexicon("data/AFINN-111.txt")
+	if err != nil {
+		return nil, err
+	}
 
-  MpqaLexicon, err := loadMpqaLexicon("data/subjclueslen1-HLTEMNLP05.tff")
-  if err != nil {
-    return nil, err
-  }
+	BingLiuLexicon, err := loadBingLiuLexicon("data/positive-words.txt", "data/negative-words.txt")
+	if err != nil {
+		return nil, err
+	}
 
-  NrcEmotionLexicon, err := loadNrcEmotionLexicon("data/NRC-emotion-lexicon-wordlevel-alphabetized-v0.92.txt")
-  if err != nil {
-    return nil, err
-  }
+	MpqaLexicon, err := loadMpqaLexicon("data/subjclueslen1-HLTEMNLP05.tff")
+	if err != nil {
+		return nil, err
+	}
+
+	NrcEmotionLexicon, err := loadNrcEmotionLexicon("data/NRC-emotion-lexicon-wordlevel-alphabetized-v0.92.txt")
+	if err != nil {
+		return nil, err
+	}
 
 	return &SvmClassifier{tokenizer: tokenizer, AfinnLexicon: AfinnLexicon, BingLiuLexicon: BingLiuLexicon, MpqaLexicon: MpqaLexicon, NrcEmotionLexicon: NrcEmotionLexicon}, err
 }
