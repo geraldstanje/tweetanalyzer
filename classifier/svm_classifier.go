@@ -206,12 +206,14 @@ const (
 	totalScoreBingLiu
 	totalScoreMpqa
 	totalScoreNrcEmotion
+  numPosScoreNrcEmotion
+  numNegScoreNrcEmotion
 )
 
 func (c *SvmClassifier) createFeatureVector(text string) []float64 {
 	tokens := c.tokenizer.Tokenize(text)
 
-	featureVec := make([]float64, 13)
+	featureVec := make([]float64, 15)
 
 	for _, str := range tokens {
 		if c.tokenizer.IsNormalizedToken(str) {
@@ -245,15 +247,15 @@ func (c *SvmClassifier) createFeatureVector(text string) []float64 {
 
 		if score3, ok := c.MpqaLexicon[str]; ok {
 			featureVec[totalScoreMpqa] += float64(score3)
-		}
+	  }
 
 		if score4, ok := c.NrcEmotionLexicon[str]; ok {
 			featureVec[totalScoreNrcEmotion] += float64(score4)
 
 			if score4 > 0 {
-				featureVec[numPosScoreAfinn]++
+				featureVec[numPosScoreNrcEmotion]++
 			} else {
-				featureVec[numNegScoreAfinn]++
+				featureVec[numPosScoreNrcEmotion]++
 			}
 		}
 	}
