@@ -268,9 +268,6 @@ func (rt *RealtimeAnalyzer) broadcastData() {
 				}
 			}
 
-		default:
-			continue
-
 			tweet_count += 1
 			fmt.Println(tweet_count)
 		}
