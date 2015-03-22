@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+  "github.com/manki/flickgo"
 )
 
 const errorCounterMax = 3
@@ -45,6 +46,9 @@ type RealtimeAnalyzer struct {
 	muMedia         sync.Mutex
 	muDupl          sync.Mutex
 	muStart         sync.Mutex
+  timestamp int64
+  dict map[string]bool
+  client *flickgo.Client
 }
 
 type Config struct {
@@ -85,8 +89,22 @@ func stringToFloat(str string) float64 {
 	return floatVal
 }
 
+func intToString(value int) string {
+    return strconv.FormatInt(int64(value), 10)
+}
+
+func stringToInt(value string) int {
+    result, _ := strconv.ParseInt(value, 10, 64)
+    return int(result)
+}
+
 func random(min, max float64) float64 {
 	return rand.Float64()*(max-min) + min
+}
+
+func randInt(min int, max int) int {
+    rand.Seed(time.Now().UTC().UnixNano())
+    return min + rand.Intn(max-min)
 }
 
 func parseXML(reader *bufio.Reader) (Config, error) {
@@ -224,7 +242,7 @@ func (rt *RealtimeAnalyzer) generateGeoData() {
 	for {
 		longitude, latitude := rt.generateRandGeoLoc()
 
-		str := "0" + ", " +
+		str := intToString(randInt(0,3)) + ", " +
 			floatToString(longitude) + ", " +
 			floatToString(latitude) + ", " +
 			"tweet"
@@ -397,8 +415,8 @@ func (rt *RealtimeAnalyzer) InstagramStream() {
 			fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
 			return
 		}
-		rt.subscriptionId = append(rt.subscriptionId, res.ObjectID)
 
+		rt.subscriptionId = append(rt.subscriptionId, res.ID) //ObjectID)
 		time.Sleep(1 * time.Second)
 	}
 
@@ -407,6 +425,8 @@ func (rt *RealtimeAnalyzer) InstagramStream() {
 	rt.muStart.Lock()
 	rt.start = true
 	rt.muStart.Unlock()
+
+  go rt.instagramTimer()
 }
 
 func (rt *RealtimeAnalyzer) formatInstagramData(media instagram.Media) string {
@@ -425,6 +445,94 @@ func (rt *RealtimeAnalyzer) formatInstagramData(media instagram.Media) string {
 	}
 
 	return comment
+}
+
+func (rt *RealtimeAnalyzer) flickr_getUsername(userid string, wg *sync.WaitGroup, username *string) {
+  args := map[string]string{
+    "user_id": userid,
+  }
+
+  defer wg.Done()
+
+  resp, err := rt.client.GetPeopleInfo(args)
+  if err != nil {
+    fmt.Println(err.Error)
+    return
+  }
+
+  *username = resp.Username
+}
+
+func (rt *RealtimeAnalyzer) flickr_getLocation(photoid string, wg *sync.WaitGroup, lat *string, long *string) {
+  args := map[string]string{
+    "photo_id": photoid,
+  }
+
+  defer wg.Done()
+
+  resp, err := rt.client.GetLocation(args)
+  if err != nil {
+    fmt.Println(err.Error)
+    return
+  }
+
+  *lat = resp.Location.Latitude
+  *long = resp.Location.Longitude
+}
+
+func (rt *RealtimeAnalyzer) flickr_request(currtimestamp int64) {
+  // https://www.flickr.com/services/api/explore/flickr.photos.search
+  args := map[string]string{
+                "min_upload_date": intToString(int(currtimestamp)),
+                "lat":  "40.790716",
+                "lon": "-73.955841",
+                "radius": "32",
+                "radius_units": "km",
+                "per_page": "100",
+        }
+
+  resp, err := rt.client.Search(args)
+  if err != nil {
+    fmt.Println(err)
+    return
+  }
+
+  if resp.Photos != nil {
+    for _, photo := range resp.Photos {
+      photoId := photo.ID
+
+      fmt.Println("id: " + photoId)
+
+      if _, ok := rt.dict[photoId]; !ok {
+        rt.dict[photoId] = true
+
+        var wg sync.WaitGroup
+        var lat string
+        var long string
+        var username string
+
+        wg.Add(2)
+        go rt.flickr_getLocation(photoId, &wg, &lat, &long)
+        go rt.flickr_getUsername(photo.Owner, &wg, &username)
+        
+        wg.Wait() // Wait for the concurrent routines to call 'done'
+
+        link := "https://www.flickr.com/photos/" + photo.Owner + "/" + photoId
+
+        comment := "2" + ", " +
+          lat + ", " +
+          long + ", " +
+          username + ": " +
+          "<br>" + photo.Title +
+          "<br><a href=\"" + link + "\">" + link + "</a>"
+ 
+
+        rt.strChan <- comment
+      } else {
+        fmt.Println("photo id already in dict")
+      }
+    }
+  }
 }
 
 func (rt *RealtimeAnalyzer) isDuplicate(mediaId string) bool {
@@ -456,13 +564,25 @@ func (rt *RealtimeAnalyzer) getRecentMedia(subscriptionId int64) {
 	}
 
 	if len(media) > 0 {
-		if rt.isDuplicate(media[0].ID) {
-			return
-		}
+    for i, _ := range media {
+		  if rt.isDuplicate(media[i].ID) {
+			 return
+		  }
 
-		comment := rt.formatInstagramData(media[0])
-		rt.strChan <- comment
+		  comment := rt.formatInstagramData(media[i])
+		  rt.strChan <- comment
+    }
 	}
+}
+
+func (rt *RealtimeAnalyzer) instagramTimer() {
+  for {
+    for i, _ := range rt.subscriptionId {
+      go rt.getRecentMedia(int64(i))
+    }
+    
+    time.Sleep(5000 * time.Millisecond)
+  }
 }
 
 func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Request) {
@@ -482,6 +602,8 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
 		//      "time": 1297286541
 		//  },
 	} else {
+    return
+
 		defer r.Body.Close()
 
 		var m = []instagram.RealtimeResponse{}
@@ -495,22 +617,41 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
 		defer rt.muStart.Unlock()
 
 		if rt.start && len(m) > 0 {
-			found := false
+			/*
+      found := false
 
 			for i, location := range rt.subscriptionId {
-				if location == m[0].ObjectID {
+        if stringToInt(location) == int(m[0].SubscriptionID) {
+				//if location == m[0].ObjectID {
 					found = true
 					go rt.getRecentMedia(int64(i))
 				}
 			}
 
 			if !found {
-				fmt.Println("Error")
-			}
+				fmt.Println("not found Error")
+			}*/
 		}
 
 		w.WriteHeader(200)
 	}
+}
+
+func (rt *RealtimeAnalyzer) flickrHandler(w http.ResponseWriter, r *http.Request) {
+  fmt.Println(r.Method)
+
+  if r.Method == "GET" { //&& r.FormValue("mode") == "subscribe" {//if ($_REQUEST['verify_token'] == 'MY VERIFY TOKEN') {
+      r.ParseForm()
+      fmt.Fprintf(w, r.FormValue("challenge"))
+  } else {
+    fmt.Println("get update")
+
+    go rt.flickr_request(rt.timestamp)
+    //timestamp = time.Now().Unix()
+  }
+  
+  //fmt.Println(r)
+  w.WriteHeader(200)
 }
 
 func (rt *RealtimeAnalyzer) startHTTPServer() {
@@ -520,9 +661,34 @@ func (rt *RealtimeAnalyzer) startHTTPServer() {
 	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
 	http.Handle("/", http.HandlerFunc(HomeHandler))
 	http.Handle("/sock", websocket.Handler(rt.WebSocketServer))
+  http.HandleFunc("/flickr", func(w http.ResponseWriter, r *http.Request) {
+    rt.flickrHandler(w, r)
+  })
 
 	err := http.ListenAndServe(":"+rt.config.Port, nil)
 	rt.errChan <- err
+}
+
+func (rt *RealtimeAnalyzer) getExternalIP() string {
+  resp, _ := http.Get("http://myexternalip.com/raw")
+  defer resp.Body.Close()
+  contents, _ := ioutil.ReadAll(resp.Body)
+  ip := string(contents)
+  return ip[:len(ip)-1]
+}
+
+// push subscribe:
+// https://www.flickr.com/services/api/explore/flickr.push.subscribe
+// topic: geo
+// callback: http://88.117.93.123:8080/flickr
+// verify: sync
+// lat: 40.790716
+// long: 73.955841
+func (rt *RealtimeAnalyzer) flickrStream() {
+  apiKey := "046b3d3c0e512c02d1ab2a01fe3051f0"
+  secret := "7e9448b741de3318"
+
+  rt.client = flickgo.New(apiKey, secret, http.DefaultClient)
 }
 
 func main() {
@@ -533,7 +699,10 @@ func main() {
 	rt.strChan = make(chan string, 1000) // buffered channel with 1000 entries
 	rt.errChan = make(chan error)        // unbuffered channel
 	rt.activeClients = make(map[string]Client)
-	rt.start = false
+  // flickr
+  rt.dict = make(map[string]bool)
+  rt.timestamp = time.Now().Unix()
+  rt.start = false
 
 	// read configuration file
 	err := rt.readConfig("config.xml")
@@ -543,6 +712,7 @@ func main() {
 	}
 
 	// replace the IP Address within the HTML file
+  //rt.config.IPAddress = rt.getExternalIP()
 	err = rt.changeIPAddress("home.html", rt.config.IPAddress+":"+rt.config.Port)
 	if err != nil {
 		log.Println(err)
@@ -554,6 +724,7 @@ func main() {
 	//go rt.generateGeoData()
 	go rt.twitterStream()
 	go rt.InstagramStream()
+  go rt.flickrStream()
 
 	err = <-rt.errChan
 

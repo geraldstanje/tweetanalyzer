@@ -17,7 +17,7 @@
     <script>
 
 var map;
-var wsURL = "ws://193.80.92.176:8080/sock";
+var wsURL = "ws://91.115.6.174:8080/sock";
 var circleHash = {};
 
 function initialize() {
@@ -169,7 +169,8 @@ function receiveData(data) {
       var string_split = data.split(",");
       var myLatlng = new google.maps.LatLng(parseFloat(string_split[1]), parseFloat(string_split[2]));
 
-      drawCircle(myLatlng, string_split[3], string_split[0]);
+      //drawCircle(myLatlng, string_split[3], string_split[0]);
+      drawCustomMarker(myLatlng, string_split[3], string_split[0])
     }
 }
 
@@ -190,7 +191,7 @@ function drawSimppleMarker(location, text) {
   });
 }
 
-function drawCustomMarker(location, text) {
+function drawCustomMarker(location, text, colorIndex) {
   var infowindow = new google.maps.InfoWindow({
     content: text,
     maxWidth: 200
@@ -203,15 +204,39 @@ function drawCustomMarker(location, text) {
   // Origins, anchor positions and coordinates of the marker
   // increase in the X direction to the right and in
   // the Y direction down.
-  var image = {
-    url: '/images/beachflag.png',
-    // This marker is 20 pixels wide by 32 pixels tall.
-    size: new google.maps.Size(20, 32),
-    // The origin for this image is 0,0.
-    origin: new google.maps.Point(0,0),
-    // The anchor for this image is the base of the flagpole at 0,32.
-    anchor: new google.maps.Point(0, 32)
-  };
+  var image;
+  if (colorIndex == 0) {
+    image = {
+      url: '/images/twitter-pointer1.png',
+      // This marker is 20 pixels wide by 32 pixels tall.
+      size: new google.maps.Size(27, 32),
+      // The origin for this image is 0,0.
+      origin: new google.maps.Point(0,0),
+      // The anchor for this image is the base of the flagpole at 0,32.
+      anchor: new google.maps.Point(0, 32)
+    };
+  } else if(colorIndex == 1) {
+    image = {
+      url: '/images/instagram-pointer1.png',
+      // This marker is 20 pixels wide by 32 pixels tall.
+      size: new google.maps.Size(27, 32),
+      // The origin for this image is 0,0.
+      origin: new google.maps.Point(0,0),
+      // The anchor for this image is the base of the flagpole at 0,32.
+      anchor: new google.maps.Point(0, 32)
+    };
+  } else if(colorIndex == 2) {
+    image = {
+      url: '/images/flickr-pointer1.png',
+      // This marker is 20 pixels wide by 32 pixels tall.
+      size: new google.maps.Size(27, 32),
+      // The origin for this image is 0,0.
+      origin: new google.maps.Point(0,0),
+      // The anchor for this image is the base of the flagpole at 0,32.
+      anchor: new google.maps.Point(0, 32)
+    };
+  }
+
   // Shapes define the clickable region of the icon.
   // The type defines an HTML &lt;area&gt; element 'poly' which
   // traces out a polygon as a series of X,Y points. The final
