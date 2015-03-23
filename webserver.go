@@ -712,7 +712,7 @@ func main() {
 	}
 
 	// replace the IP Address within the HTML file
-  //rt.config.IPAddress = rt.getExternalIP()
+  rt.config.IPAddress = rt.getExternalIP()
 	err = rt.changeIPAddress("home.html", rt.config.IPAddress+":"+rt.config.Port)
 	if err != nil {
 		log.Println(err)
