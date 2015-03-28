@@ -200,6 +200,7 @@ func main() {
 	go rt.flickrstream.FlickrStream()
 
 	err = <-rt.errChan
+	rt.errChanWebsock <- err
 
 	if err != nil {
 		log.Println(err)
