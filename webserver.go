@@ -31,6 +31,7 @@ type RealtimeAnalyzer struct {
 	config          tweetanalyzer.Config
 	activeClients   map[string]Client
 	strChan         chan string
+	errChanWebsock  chan error
 	errChan         chan error
 }
 
@@ -130,10 +131,8 @@ func (rt *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
 	log.Println("New client connected:", client)
 	rt.activeClients[client] = Client{0, ws, client}
 
-	// for loop so the websocket stays open otherwise it'll close
-	for {
-		time.Sleep(1 * time.Second)
-	}
+	// wait for errChan, so the websocket stays open otherwise it'll close
+	err = <-rt.errChanWebsock
 }
 
 func (rt *RealtimeAnalyzer) startHTTPServer() {
@@ -142,6 +141,7 @@ func (rt *RealtimeAnalyzer) startHTTPServer() {
 	http.Handle("/sock", websocket.Handler(rt.WebSocketServer))
 
 	err := http.ListenAndServe(":"+rt.config.Port, nil)
+	rt.errChanWebsock <- err
 	rt.errChan <- err
 }
 
@@ -195,8 +195,8 @@ func main() {
 	go rt.startHTTPServer()
 	go rt.broadcastData()
 	//go rt.generateGeoData()
-	//go rt.instagramstream.InstagramStream()
-	//go rt.twitterstream.TwitterStream()
+	go rt.instagramstream.InstagramStream()
+	go rt.twitterstream.TwitterStream()
 	go rt.flickrstream.FlickrStream()
 
 	err = <-rt.errChan

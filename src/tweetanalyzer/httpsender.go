@@ -23,7 +23,7 @@ func NewHttpSender() *HttpSender {
 	return &t
 }
 
-func (t *HttpSender) Send(urlstr string, send_post_data bool, post_data url.Values) (string, string, error) {
+func (t *HttpSender) Send(urlstr string, send_post_data bool, post_data url.Values, header_data map[string]string) (string, string, error) {
 	var req *http.Request
 	var err error
 
@@ -39,28 +39,9 @@ func (t *HttpSender) Send(urlstr string, send_post_data bool, post_data url.Valu
 		}
 	}
 
-	if len(t.csrf_token) > 0 {
-		req.Header.Set("X-CSRFToken", t.csrf_token)
-		req.Header.Set("X-Instagram-AJAX", "1")
-		req.Header.Set("X-Requested-With", "XMLHttpRequest")
-		req.Header.Set("Accept", "*/*")
-	} else {
-		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+	for key, val := range header_data {
+		req.Header.Set(key, val)
 	}
-
-	//req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	//req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9, * /*;q=0.8")
-	//req.Header.Set("Accept-Encoding", "gzip,deflate,sdch")
-	//req.Header.Set("Accept-Language", "en-US,en;q=0.8")
-
-	req.Header.Set("Host", "instagram.com")
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	//req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	//req.Header.Set("Host", "twitter.com")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:16.0) Gecko/20100101 Firefox/16.0")
-	//req.Header.Set("Origin", "https://twitter.com")
-	req.Header.Set("Referer", "https://instagram.com")
-	//req.Header.Set("Cache-Control", "max-age=0")
 
 	if debug {
 		dump, err := httputil.DumpRequest(req, true)

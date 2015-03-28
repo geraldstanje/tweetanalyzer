@@ -4,7 +4,6 @@ import (
 	"github.com/carbocation/go-instagram/instagram"
 	"log"
 	"net/url"
-	"sync"
 	"time"
 )
 
@@ -14,13 +13,8 @@ type InstagramStream struct {
 	client         *instagram.Client
 	subscriptionId []string
 	dictInstagram  map[string]bool
-	muStart        sync.Mutex
-	muMedia        sync.Mutex
-	muDupl         sync.Mutex
-	start          bool
-	//muStart         sync.Mutex
-	config     Config
-	httpsender *HttpSender
+	config         Config
+	httpsender     *HttpSender
 }
 
 func NewInstagramStream(strChan_ chan string, errChan_ chan error, config_ Config) *InstagramStream {
@@ -36,14 +30,25 @@ func NewInstagramStream(strChan_ chan string, errChan_ chan error, config_ Confi
 }
 
 func (in *InstagramStream) SetRedirectIP(ip string) {
-	str, _, _ := in.httpsender.Send("https://instagram.com/", false, nil)
-	in.httpsender.csrf_token, _ = in.httpsender.GetData(str, ",\"csrf_token\":\"", "\"}}")
+	header_data := make(map[string]string)
+	header_data["Host"] = "instagram.com"
+	header_data["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+	header_data["User-Agent"] = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:16.0) Gecko/20100101 Firefox/16.0"
+	header_data["Referer"] = "https://instagram.com"
+	header_data["Host"] = "instagram.com"
+	header_data["Accept"] = "*/*"
+
+	str, _, _ := in.httpsender.Send("https://instagram.com/", false, nil, header_data)
+	csrf_token, _ := in.httpsender.GetData(str, ",\"csrf_token\":\"", "\"}}")
+	header_data["X-CSRFToken"] = csrf_token
+	header_data["X-Instagram-AJAX"] = "1"
+	header_data["X-Requested-With"] = "XMLHttpRequest"
 
 	data := url.Values{"username": {in.config.InstagramConfig.Username},
 		"password": {in.config.InstagramConfig.Password}}
-	_, _, _ = in.httpsender.Send("https://instagram.com/accounts/login/ajax/", true, data)
+	_, _, _ = in.httpsender.Send("https://instagram.com/accounts/login/ajax/", true, data, header_data)
 
-	str2, _, _ := in.httpsender.Send("https://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis", false, nil)
+	str2, _, _ := in.httpsender.Send("https://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis", false, nil, header_data)
 	csrfmiddlewaretoken, _ := in.httpsender.GetData(str2, "\"csrfmiddlewaretoken\" value=\"", "\"/>")
 	client_id, _ := in.httpsender.GetData(str2, "<th>Client ID</th>\n"+CreateString(" ", 24)+"<td>", "</td>")
 
@@ -53,13 +58,13 @@ func (in *InstagramStream) SetRedirectIP(ip string) {
 		"website_url":  {"http://github.com/geraldstanje"},
 		"redirect_uri": {"http://" + in.config.IPAddress + "/instagram"}}
 
-	_, _, _ = in.httpsender.Send("https://instagram.com/developer/clients/"+client_id+"/edit/", true, data2)
+	_, _, _ = in.httpsender.Send("https://instagram.com/developer/clients/"+client_id+"/edit/", true, data2, header_data)
 }
 
 func (in *InstagramStream) InstagramStream() {
 	for {
 		for i, _ := range in.config.InstagramConfig.Location {
-			go in.getRecentMedia(int64(i))
+			in.getRecentMedia(int64(i))
 		}
 
 		time.Sleep(5000 * time.Millisecond)
@@ -73,9 +78,7 @@ func (in *InstagramStream) getRecentMedia(subscriptionId int64) {
 		Distance: 5000,
 	}
 
-	in.muMedia.Lock()
 	media, _, err := in.client.Media.Search(opt)
-	in.muMedia.Unlock()
 
 	if err != nil {
 		log.Println("Error: ", instagram.ErrorResponse(*in.client.Response))
@@ -95,9 +98,6 @@ func (in *InstagramStream) getRecentMedia(subscriptionId int64) {
 }
 
 func (in *InstagramStream) isDuplicate(mediaId string) bool {
-	in.muDupl.Lock()
-	defer in.muDupl.Unlock()
-
 	if _, ok := in.dictInstagram[mediaId]; ok {
 		return true
 	} else {
@@ -129,90 +129,4 @@ func (in *InstagramStream) Create() {
 	in.client.ClientID = in.config.InstagramConfig.ClientID
 	in.client.ClientSecret = in.config.InstagramConfig.ClientSecret
 	in.client.AccessToken = in.config.InstagramConfig.AccessToken
-
-	// delete all existing subscriptions
-	/*res, err := rt.instagramClient.Realtime.DeleteAllSubscriptions()
-	  if err != nil {
-	    fmt.Println("client.Realtime.DeleteAllSubscriptions returned error: ", err)
-	    return
-	  }
-
-	  time.Sleep(1 * time.Second)
-
-	  // subscribe to Manhattan uptown area
-	  // subscribe to Manhattan downtown area
-	  // subscribe to Brooklyn area
-	  // subscribe to Queens area
-	  // subscribe to Flushing area
-	  for _, location := range rt.config.InstagramConfig.Location {
-	    res, err = rt.instagramClient.Realtime.SubscribeToGeography(tweetanalyzer.FloatToString(location.Lat), tweetanalyzer.FloatToString(location.Long), "5000", "http://"+rt.config.IPAddress+":"+rt.config.Port+rt.config.InstagramConfig.CallbackURL)
-	    if err != nil {
-	      fmt.Println("client.Realtime.SubscribeToGeography returned error: ", err)
-	      return
-	    }
-
-	    rt.subscriptionId = append(rt.subscriptionId, res.ID) //ObjectID)
-	    time.Sleep(1 * time.Second)
-	  }
-
-	  time.Sleep(2 * time.Second)
-	*/
-
-	in.muStart.Lock()
-	in.start = true
-	in.muStart.Unlock()
 }
-
-/*
-func (in *InstagramStream) InstagramHandler(w http.ResponseWriter, r *http.Request) {
-  // To create a subscription, you make a POST request to the subscriptions endpoint.
-  // The received GET request is the response of the subscription
-  if r.Method == "GET" && r.FormValue("hub.mode") == "subscribe" && r.FormValue("hub.challenge") != "" {
-    r.ParseForm()
-    fmt.Fprintf(w, r.FormValue("hub.challenge"))
-    // When someone posts a new photo and it triggers an update of one of your subscriptions,
-    // instagram makes a POST request to the callback URL that you defined in the subscription.
-    // The post body contains a raw text JSON body with update objects:
-    //  {
-    //      "subscription_id": "1",
-    //      "object": "user",
-    //      "object_id": "1234",
-    //      "changed_aspect": "media",
-    //      "time": 1297286541
-    //  },
-  } else {
-    return
-
-    defer r.Body.Close()
-
-    var m = []instagram.RealtimeResponse{}
-    err := json.NewDecoder(r.Body).Decode(&m)
-    if err != nil {
-      log.Println("Error: " + err.Error())
-      return
-    }
-
-    in.muStart.Lock()
-    defer in.muStart.Unlock()
-
-    if in.start && len(m) > 0 {
-
-      //found := false
-
-      //for i, location := range rt.subscriptionId {
-      //  if stringToInt(location) == int(m[0].SubscriptionID) {
-        //if location == m[0].ObjectID {
-      //    found = true
-      //    go rt.getRecentMedia(int64(i))
-      //  }
-      //}
-
-      //if !found {
-      //  fmt.Println("not found Error")
-      //}
-    }
-
-    w.WriteHeader(200)
-  }
-}
-*/
