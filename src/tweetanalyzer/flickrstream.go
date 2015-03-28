@@ -112,57 +112,7 @@ func (fl *FlickrStream) request(currtimestamp int64) {
 					"<br><a href=\"" + link + "\">" + link + "</a>"
 
 				fl.strChan <- comment
-			} //else {
-			//fmt.Println("photo id already in dict")
-			//}
+			}
 		}
 	}
 }
-
-/*
-func (rt *RealtimeAnalyzer) flickrHandler(w http.ResponseWriter, r *http.Request) {
-  fmt.Println(r.Method)
-
-  if r.Method == "GET" { //&& r.FormValue("mode") == "subscribe" {//if ($_REQUEST['verify_token'] == 'MY VERIFY TOKEN') {
-      r.ParseForm()
-      fmt.Fprintf(w, r.FormValue("challenge"))
-  } else {
-    fmt.Println("get update")
-
-    go rt.flickr_request(rt.timestamp)
-    //timestamp = time.Now().Unix()
-  }
-
-  //fmt.Println(r)
-  w.WriteHeader(200)
-}
-
-// push subscribe:
-// https://www.flickr.com/services/api/explore/flickr.push.subscribe
-// topic: geo
-// callback: http://88.117.93.123:8080/flickr
-// verify: sync
-// lat: 40.790716
-// long: 73.955841
-func (rt *RealtimeAnalyzer) flickrStream() {
-  apiKey := "046b3d3c0e512c02d1ab2a01fe3051f0"
-  secret := "7e9448b741de3318"
-  rt.client = flickgo.New(apiKey, secret, http.DefaultClient)
-
-  args := map[string]string{
-    "topic": "geo",
-    "callback": "http://" + rt.config.IPAddress + ":8080/flickr",
-    "verify": "sync",
-    "lat":  "40.790716",
-    "lon": "-73.955841",
-    "radius": "32",
-    "radius_units": "km",
-  }
-
-  err := rt.client.PushSubscribe(args)
-  if err != nil {
-    fmt.Println(err)
-    return
-  }
-}
-*/
