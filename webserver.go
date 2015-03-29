@@ -31,7 +31,6 @@ type RealtimeAnalyzer struct {
 	config          tweetanalyzer.Config
 	activeClients   map[string]Client
 	strChan         chan string
-	errChanWebsock  chan error
 	errChan         chan error
 }
 
@@ -132,7 +131,7 @@ func (rt *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
 	rt.activeClients[client] = Client{0, ws, client}
 
 	// wait for errChan, so the websocket stays open otherwise it'll close
-	err = <-rt.errChanWebsock
+	err = <-rt.errChan
 }
 
 func (rt *RealtimeAnalyzer) startHTTPServer() {
@@ -141,7 +140,6 @@ func (rt *RealtimeAnalyzer) startHTTPServer() {
 	http.Handle("/sock", websocket.Handler(rt.WebSocketServer))
 
 	err := http.ListenAndServe(":"+rt.config.Port, nil)
-	rt.errChanWebsock <- err
 	rt.errChan <- err
 }
 
@@ -200,7 +198,6 @@ func main() {
 	go rt.flickrstream.FlickrStream()
 
 	err = <-rt.errChan
-	rt.errChanWebsock <- err
 
 	if err != nil {
 		log.Println(err)
