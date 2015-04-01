@@ -175,7 +175,7 @@ func main() {
 	}
 
 	// get the exernal IP address
-	rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"; //192.168.59.103"; //rt.getExternalIP()
+	rt.config.IPAddress = rt.getExternalIP(); //"192.168.59.103"; //ebsdockerhellogo-env.elasticbeanstalk.com"; //192.168.59.103"; //rt.getExternalIP()
   //rt.config.Port = "6060";
 
 	// create TwitterStream, InstagramStream
@@ -197,7 +197,7 @@ func main() {
 	go rt.broadcastData()
 	//go rt.generateGeoData()
 	go rt.instagramstream.InstagramStream()
-	go rt.twitterstream.TwitterStream()
+	//go rt.twitterstream.TwitterStream()
 	go rt.flickrstream.FlickrStream()
 
 	err = <-rt.errChan
