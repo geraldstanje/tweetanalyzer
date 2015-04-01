@@ -12,8 +12,8 @@ import (
 	"regexp"
 	"runtime"
 	"time"
-	//"tweetanalyzer"
-  "github.com/geraldstanje/tweetanalyzer/src/tweetanalyzer"
+	"tweetanalyzer"
+  //"github.com/geraldstanje/tweetanalyzer/src/tweetanalyzer"
 )
 
 const debug = false
@@ -179,13 +179,14 @@ func main() {
   //rt.config.Port = "6060";
 
 	// create TwitterStream, InstagramStream
-	rt.twitterstream = tweetanalyzer.NewTwitterStream(rt.strChan, rt.errChan, rt.config)
+	/*rt.twitterstream = tweetanalyzer.NewTwitterStream(rt.strChan, rt.errChan, rt.config)
 	rt.instagramstream = tweetanalyzer.NewInstagramStream(rt.strChan, rt.errChan, rt.config)
 	rt.instagramstream.SetRedirectIP(rt.config.IPAddress)
 	rt.instagramstream.Create()
 	rt.flickrstream = tweetanalyzer.NewFlickrStream(rt.strChan, rt.errChan, rt.config)
 	rt.flickrstream.Create()
-
+  */
+  
 	// replace the IP Address within the HTML file
 	err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":"+rt.config.Port)
 	if err != nil {
