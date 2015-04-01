@@ -3,7 +3,8 @@ package main
 import (
 	"bytes"
 	"code.google.com/p/go.net/websocket"
-	"fmt"
+	//"github.com/golang/net/tree/master/websocket"
+  "fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,7 +12,8 @@ import (
 	"regexp"
 	"runtime"
 	"time"
-	"tweetanalyzer"
+	//"tweetanalyzer"
+  "github.com/geraldstanje/tweetanalyzer/src/tweetanalyzer"
 )
 
 const debug = false
@@ -173,7 +175,8 @@ func main() {
 	}
 
 	// get the exernal IP address
-	rt.config.IPAddress = rt.getExternalIP()
+	rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"; //192.168.59.103"; //rt.getExternalIP()
+  //rt.config.Port = "6060";
 
 	// create TwitterStream, InstagramStream
 	rt.twitterstream = tweetanalyzer.NewTwitterStream(rt.strChan, rt.errChan, rt.config)
