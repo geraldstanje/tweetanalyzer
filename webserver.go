@@ -175,7 +175,7 @@ func main() {
 	}
 
 	// get the exernal IP address
-	rt.config.IPAddress = rt.getExternalIP(); //"192.168.59.103"; //ebsdockerhellogo-env.elasticbeanstalk.com"; //192.168.59.103"; //rt.getExternalIP()
+	rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"; //rt.getExternalIP(); //"192.168.59.103"; //ebsdockerhellogo-env.elasticbeanstalk.com"; //192.168.59.103"; //rt.getExternalIP()
   //rt.config.Port = "6060";
 
 	// create TwitterStream, InstagramStream
@@ -186,7 +186,7 @@ func main() {
 	rt.flickrstream = tweetanalyzer.NewFlickrStream(rt.strChan, rt.errChan, rt.config)
 	rt.flickrstream.Create()
   */
-  
+
 	// replace the IP Address within the HTML file
 	err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":"+rt.config.Port)
 	if err != nil {
