@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"code.google.com/p/go.net/websocket"
 	//"github.com/golang/net/tree/master/websocket"
-  "fmt"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,8 +12,8 @@ import (
 	"regexp"
 	"runtime"
 	"time"
-	"tweetanalyzer"
-  //"github.com/geraldstanje/tweetanalyzer/src/tweetanalyzer"
+	//"tweetanalyzer"
+	"github.com/geraldstanje/tweetanalyzer/src/tweetanalyzer"
 )
 
 const debug = false
@@ -175,8 +175,8 @@ func main() {
 	}
 
 	// get the exernal IP address
-	rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"; //rt.getExternalIP(); //"192.168.59.103"; //ebsdockerhellogo-env.elasticbeanstalk.com"; //192.168.59.103"; //rt.getExternalIP()
-  //rt.config.Port = "6060";
+	rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com" //rt.getExternalIP(); //"192.168.59.103"; //ebsdockerhellogo-env.elasticbeanstalk.com"; //192.168.59.103"; //rt.getExternalIP()
+	//rt.config.Port = "6060";
 
 	// create TwitterStream, InstagramStream
 	/*rt.twitterstream = tweetanalyzer.NewTwitterStream(rt.strChan, rt.errChan, rt.config)
@@ -185,7 +185,7 @@ func main() {
 	rt.instagramstream.Create()
 	rt.flickrstream = tweetanalyzer.NewFlickrStream(rt.strChan, rt.errChan, rt.config)
 	rt.flickrstream.Create()
-  */
+	*/
 
 	// replace the IP Address within the HTML file
 	err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":"+rt.config.Port)
