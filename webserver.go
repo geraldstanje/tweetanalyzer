@@ -195,10 +195,10 @@ func main() {
 
 	go rt.startHTTPServer()
 	go rt.broadcastData()
-	//go rt.generateGeoData()
-	go rt.instagramstream.InstagramStream()
+	go rt.generateGeoData()
+	//go rt.instagramstream.InstagramStream()
 	//go rt.twitterstream.TwitterStream()
-	go rt.flickrstream.FlickrStream()
+	//go rt.flickrstream.FlickrStream()
 
 	err = <-rt.errChan
 
