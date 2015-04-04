@@ -46,8 +46,7 @@ func (rt *RealtimeAnalyzer) changeIPAddressInFile(filename string, newStr string
 		return err
 	}
 
-	reg := regexp.MustCompile(`[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}/sock";`)
-	ips := reg.FindAllString(string(b), -1)
+	reg := regexp.MustCompile(`[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}:[0-9]{2,5}/sock";`)
 
 	for _, ip := range ips {
 		newStr += "/sock\";"
