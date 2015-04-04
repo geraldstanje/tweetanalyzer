@@ -156,7 +156,7 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
   } else {
     defer r.Body.Close()
 
-    
+
     }
 
   w.WriteHeader(200)
@@ -164,9 +164,9 @@ func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Requ
 */
 
 func (rt *RealtimeAnalyzer) startHTTPServer() {
-  //http.HandleFunc("/instagram", func(w http.ResponseWriter, r *http.Request) {
-  //  rt.instagramHandler(w, r)
-  //})
+	//http.HandleFunc("/instagram", func(w http.ResponseWriter, r *http.Request) {
+	//  rt.instagramHandler(w, r)
+	//})
 	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
 	http.Handle("/", http.HandlerFunc(HomeHandler))
 	http.Handle("/sock", websocket.Handler(rt.WebSocketServer))
@@ -206,7 +206,7 @@ func main() {
 
 	// get the exernal IP address
 	rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"
-  //rt.config.IPAddress = rt.getExternalIP();
+	//rt.config.IPAddress = rt.getExternalIP();
 	//rt.config.IPAddress = "192.168.59.103";
 
 	// create TwitterStream, InstagramStream
