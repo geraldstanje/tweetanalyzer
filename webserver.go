@@ -46,7 +46,7 @@ func (rt *RealtimeAnalyzer) changeIPAddressInFile(filename string, newStr string
 		return err
 	}
 
-	reg := regexp.MustCompile(`[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}:[0-9]{2,5}/sock";`)
+	reg := regexp.MustCompile(`[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}/sock";`)
 	ips := reg.FindAllString(string(b), -1)
 
 	for _, ip := range ips {
@@ -136,7 +136,37 @@ func (rt *RealtimeAnalyzer) WebSocketServer(ws *websocket.Conn) {
 	err = <-rt.errChan
 }
 
+/*
+func (rt *RealtimeAnalyzer) instagramHandler(w http.ResponseWriter, r *http.Request) {
+  // To create a subscription, you make a POST request to the subscriptions endpoint.
+  // The received GET request is the response of the subscription
+  if r.Method == "GET" && r.FormValue("hub.mode") == "subscribe" && r.FormValue("hub.challenge") != "" {
+    r.ParseForm()
+    fmt.Fprintf(w, r.FormValue("hub.challenge"))
+    // When someone posts a new photo and it triggers an update of one of your subscriptions,
+    // instagram makes a POST request to the callback URL that you defined in the subscription.
+    // The post body contains a raw text JSON body with update objects:
+    //  {
+    //      "subscription_id": "1",
+    //      "object": "user",
+    //      "object_id": "1234",
+    //      "changed_aspect": "media",
+    //      "time": 1297286541
+    //  },
+  } else {
+    defer r.Body.Close()
+
+    
+    }
+
+  w.WriteHeader(200)
+}
+*/
+
 func (rt *RealtimeAnalyzer) startHTTPServer() {
+  //http.HandleFunc("/instagram", func(w http.ResponseWriter, r *http.Request) {
+  //  rt.instagramHandler(w, r)
+  //})
 	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images/"))))
 	http.Handle("/", http.HandlerFunc(HomeHandler))
 	http.Handle("/sock", websocket.Handler(rt.WebSocketServer))
@@ -175,20 +205,20 @@ func main() {
 	}
 
 	// get the exernal IP address
-	rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com" //rt.getExternalIP(); //"192.168.59.103"; //ebsdockerhellogo-env.elasticbeanstalk.com"; //192.168.59.103"; //rt.getExternalIP()
-	//rt.config.Port = "6060";
+	rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"
+  //rt.config.IPAddress = rt.getExternalIP();
+	//rt.config.IPAddress = "192.168.59.103";
 
 	// create TwitterStream, InstagramStream
-	/*rt.twitterstream = tweetanalyzer.NewTwitterStream(rt.strChan, rt.errChan, rt.config)
+	rt.twitterstream = tweetanalyzer.NewTwitterStream(rt.strChan, rt.errChan, rt.config)
 	rt.instagramstream = tweetanalyzer.NewInstagramStream(rt.strChan, rt.errChan, rt.config)
-	rt.instagramstream.SetRedirectIP(rt.config.IPAddress)
+	//rt.instagramstream.SetRedirectIP(rt.config.IPAddress)
 	rt.instagramstream.Create()
 	rt.flickrstream = tweetanalyzer.NewFlickrStream(rt.strChan, rt.errChan, rt.config)
 	rt.flickrstream.Create()
-	*/
 
 	// replace the IP Address within the HTML file
-	err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":"+rt.config.Port)
+	err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":80")
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -196,10 +226,10 @@ func main() {
 
 	go rt.startHTTPServer()
 	go rt.broadcastData()
-	go rt.generateGeoData()
-	//go rt.instagramstream.InstagramStream()
-	//go rt.twitterstream.TwitterStream()
-	//go rt.flickrstream.FlickrStream()
+	//go rt.generateGeoData()
+	go rt.instagramstream.InstagramStream()
+	go rt.twitterstream.TwitterStream()
+	go rt.flickrstream.FlickrStream()
 
 	err = <-rt.errChan
 
