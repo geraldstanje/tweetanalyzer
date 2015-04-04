@@ -1,7 +1,7 @@
 FROM golang
 
 # Add directories
-# the flickgo hat local modifications, thats why i need to copy it
+#ADD twitterstream /go/src/github.com/darkhelmet/twitterstream/
 ADD flickgo /go/src/github.com/manki/flickgo/
 ADD . /go/src/github.com/geraldstanje/tweetanalyzer
 

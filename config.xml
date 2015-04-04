@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config>
-  <ip>193.80.92.176</ip>
+  <ip>91.115.6.174</ip>
   <port>8080</port>
   <twitter>
     <consumerKey>xxx</consumerKey>
@@ -12,11 +12,14 @@
     <location lat="41" long="-73"/>
   </twitter>
   <instagram>
+    <username>xxx</username>
+    <password>xxx</password>
     <!-- change ip here: http://instagram.com/developer/clients/manage/?edited=RealtimeDataAnalysis -->
     <clientID>xxx</clientID>
     <clientSecret>xxx</clientSecret>
     <!-- get access token: https://instagram.com/oauth/authorize/?client_id=XXX&redirect_uri=XXX&response_type=token -->
-    <accessToken>xxx</accessToken> 
+    <accessToken>xxx</accessToken>
+    <!-- <accessToken>xxx</accessToken> -->
     <callbackURL>/instagram</callbackURL>
     <!-- Manhattan uptown area -->
     <location lat="40.799555" long="-73.973693"/>
@@ -29,4 +32,11 @@
     <!-- Flushing area -->
     <location lat="40.781227" long="-73.859195"/>
   </instagram>
+  <flickr>
+    <apiKey>xxx</apiKey>
+    <secret>xxx</secret>
+    <radius>32</radius>
+    <radiusUnits>km</radiusUnits>
+    <location lat="40.790716" long="-73.955841"/>
+  </flickr>
 </config>
