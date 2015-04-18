@@ -204,7 +204,7 @@ func main() {
 			log.Println(err)
 			os.Exit(1)
 		}
-	} else if DeployTo == "192.168.59.103" || DeployTo == NoDocker {
+	} else if DeployTo == Boot2Docker || DeployTo == NoDocker {
 		err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":8080")
 		if err != nil {
 			log.Println(err)
