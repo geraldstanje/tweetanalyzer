@@ -98,7 +98,7 @@ func (fl *FlickrStream) request(currtimestamp int64) {
 					continue
 				}
 
-				username, err := fl.getUsername(photo.Owner, &username)
+				username, err := fl.getUsername(photo.Owner)
 				if err != nil {
 					fmt.Println(err.Error())
 					continue
