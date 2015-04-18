@@ -20,7 +20,7 @@ const errorCounterMax = 3
 const DeployTo = Boot2Docker
 
 const (
-	AWSWithDocker = itoa
+	AWSWithDocker = iota
 	Boot2Docker
 	NoDocker
 )
@@ -184,9 +184,9 @@ func main() {
 	if DeployTo == AWSWithDocker {
 		rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"
 	} else if DeployTo == Boot2Docker {
-		t.config.IPAddress = "192.168.59.103"
+		rt.config.IPAddress = "192.168.59.103"
 	} else if DeployTo == NoDocker {
-		t.config.IPAddress = rt.getExternalIP()
+		rt.config.IPAddress = rt.getExternalIP()
 	}
 
 	// create TwitterStream, InstagramStream
@@ -198,10 +198,18 @@ func main() {
 	rt.flickrstream.Create()
 
 	// replace the IP Address within the HTML file
-	err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":80")
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+	if DeployTo == AWSWithDocker {
+		err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":80")
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+	} else if DeployTo == DeployTo == "192.168.59.103" || DeployTo == NoDocker {
+		err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":8080")
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
 	}
 
 	go rt.startHTTPServer()
