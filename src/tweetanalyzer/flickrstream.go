@@ -42,33 +42,30 @@ func (fl *FlickrStream) FlickrStream() {
 	}
 }
 
-func (fl *FlickrStream) getUsername(userid string, username *string) {
+func (fl *FlickrStream) getUsername(userid string) (string, error) {
 	args := map[string]string{
 		"user_id": userid,
 	}
 
 	resp, err := fl.client.GetPeopleInfo(args)
 	if err != nil {
-		fmt.Println(err.Error)
-		return
+		return "", err
 	}
 
-	*username = resp.Username
+	return resp.UserName, nil
 }
 
-func (fl *FlickrStream) getLocation(photoid string, lat *string, long *string) {
+func (fl *FlickrStream) getLocation(photoid string) (string, string, error) {
 	args := map[string]string{
 		"photo_id": photoid,
 	}
 
 	resp, err := fl.client.GetLocation(args)
 	if err != nil {
-		fmt.Println(err.Error)
-		return
+		return "", "", err
 	}
 
-	*lat = resp.Location.Latitude
-	*long = resp.Location.Longitude
+	return resp.Location.Latitude, resp.Location.Longitude, nil
 }
 
 func (fl *FlickrStream) request(currtimestamp int64) {
@@ -95,12 +92,17 @@ func (fl *FlickrStream) request(currtimestamp int64) {
 			if _, ok := fl.dict[photoId]; !ok {
 				fl.dict[photoId] = true
 
-				var lat string
-				var long string
-				var username string
+				lat, long, err := fl.getLocation(photoId)
+				if err != nil {
+					fmt.Println(err.Error())
+					continue
+				}
 
-				fl.getLocation(photoId, &lat, &long)
-				fl.getUsername(photo.Owner, &username)
+				username, err := fl.getUsername(photo.Owner, &username)
+				if err != nil {
+					fmt.Println(err.Error())
+					continue
+				}
 
 				link := "https://www.flickr.com/photos/" + photo.Owner + "/" + photoId
 

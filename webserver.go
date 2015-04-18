@@ -174,9 +174,9 @@ func main() {
 	}
 
 	// get the exernal IP address
-	rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"
+	//rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"
 	//rt.config.IPAddress = rt.getExternalIP();
-	//rt.config.IPAddress = "192.168.59.103";
+	rt.config.IPAddress = "192.168.59.103"
 
 	// create TwitterStream, InstagramStream
 	rt.twitterstream = tweetanalyzer.NewTwitterStream(rt.strChan, rt.errChan, rt.config)

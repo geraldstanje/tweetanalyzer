@@ -1,7 +1,7 @@
 FROM golang
 
 # Add directories
-ADD flickgo /go/src/github.com/manki/flickgo/
+#ADD flickgo /go/src/github.com/manki/flickgo/
 
 RUN ["go", "get", "github.com/geraldstanje/tweetanalyzer" ]
 
