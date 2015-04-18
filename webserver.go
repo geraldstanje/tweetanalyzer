@@ -17,6 +17,13 @@ import (
 
 const debug = false
 const errorCounterMax = 3
+const DeployTo = Boot2Docker
+
+const (
+	AWSWithDocker = itoa
+	Boot2Docker
+	NoDocker
+)
 
 // Client connection consists of the websocket and the client ip
 type Client struct {
@@ -173,10 +180,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// get the exernal IP address
-	//rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"
-	//rt.config.IPAddress = rt.getExternalIP();
-	rt.config.IPAddress = "192.168.59.103"
+	// change IP Address depending on the env to deploy
+	if DeployTo == AWSWithDocker {
+		rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"
+	} else if DeployTo == Boot2Docker {
+		t.config.IPAddress = "192.168.59.103"
+	} else if DeployTo == NoDocker {
+		t.config.IPAddress = rt.getExternalIP()
+	}
 
 	// create TwitterStream, InstagramStream
 	rt.twitterstream = tweetanalyzer.NewTwitterStream(rt.strChan, rt.errChan, rt.config)
