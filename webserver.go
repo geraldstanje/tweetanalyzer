@@ -184,10 +184,13 @@ func main() {
 	// change IP Address depending on the env to deploy
 	if DeployTo == AWSWithDocker {
 		rt.config.IPAddress = "ebsdockerhellogo-env.elasticbeanstalk.com"
+		rt.config.Port = "80"
 	} else if DeployTo == Boot2Docker {
 		rt.config.IPAddress = "192.168.59.103"
+		rt.config.Port = "8080"
 	} else if DeployTo == NoDocker {
 		rt.config.IPAddress = rt.getExternalIP()
+		rt.config.Port = "8080"
 	}
 
 	// create TwitterStream, InstagramStream
@@ -198,19 +201,11 @@ func main() {
 	rt.flickrstream = tweetanalyzer.NewFlickrStream(rt.strChan, rt.errChan, rt.config)
 	rt.flickrstream.Create()
 
-	// replace the IP Address within the HTML file
-	if DeployTo == AWSWithDocker {
-		err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":80")
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
-	} else if DeployTo == Boot2Docker || DeployTo == NoDocker {
-		err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":8080")
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
+	// replace the IP Address and Port within the HTML file
+	err = rt.changeIPAddressInFile("home.html", rt.config.IPAddress+":"+rt.config.Port)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
 	}
 
 	go rt.startHTTPServer()
