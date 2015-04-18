@@ -56,6 +56,7 @@ func (rt *RealtimeAnalyzer) changeIPAddressInFile(filename string, newStr string
 	ips := reg.FindAllString(string(b), -1)
 
 	for _, ip := range ips {
+		fmt.Println("change ip......")
 		newStr += "/sock\";"
 		b = bytes.Replace(b, []byte(ip), []byte(newStr), -1)
 	}
