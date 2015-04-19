@@ -22,8 +22,8 @@ stopall() {
 cleanup() {
   # Remove all containers
   docker rm $(docker ps -a -q)
-  # Romve all images
-  docker rmi $(docker images -q)
+  # Romove all images
+  #docker rmi $(docker images -q)
 }
 
 case $1 in start|info|stopall|cleanup) "$1" ;; *) printf >&2 '%s: unknown command\n' "$1"; exit 1;; esac
