@@ -1,7 +1,6 @@
 #!/bin/bash
 
-docker build --no-cache .
-docker build -t outyet .
+docker build --no-cache -t outyet .
 boot2docker up && $(boot2docker shellinit) 
 boot2docker ip
 # docker 
